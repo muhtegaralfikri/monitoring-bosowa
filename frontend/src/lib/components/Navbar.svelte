@@ -38,7 +38,7 @@
       onclick={() => handleNavigate('dashboard')}
       onkeydown={(e) => e.key === 'Enter' && handleNavigate('dashboard')}
     >
-      Monitoring BBM
+      <img src="/logo.png" alt="Monitoring BBM" class="brand-logo" />
     </button>
   </div>
 
@@ -82,8 +82,6 @@
   }
 
   .brand-link {
-    font-weight: 700;
-    font-size: 1.25rem;
     color: var(--primary, #2563eb);
     text-decoration: none;
     cursor: pointer;
@@ -92,8 +90,10 @@
     padding: 0;
   }
 
-  .brand-link:hover {
-    text-decoration: underline;
+  .brand-logo {
+    height: 40px;
+    width: auto;
+    display: block;
   }
 
   .navbar-menu {
@@ -176,8 +176,8 @@
       padding: 0.75rem 1rem;
     }
 
-    .brand-link {
-      font-size: 1rem;
+    .brand-logo {
+      height: 32px;
     }
 
     .mobile-menu-toggle {
