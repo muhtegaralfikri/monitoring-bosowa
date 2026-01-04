@@ -47,7 +47,13 @@ async function refreshAccessToken(): Promise<boolean> {
 const retryMap = new Map<string, number>()
 const MAX_RETRIES = 1
 
-async function handleResponse(res: Response, retryCount = 0): Promise<unknown> {
+type RequestMeta = {
+  url: string
+  method: string
+  body?: BodyInit | null
+}
+
+async function handleResponse(res: Response, request: RequestMeta, retryCount = 0): Promise<unknown> {
   if (res.status === 401) {
     // Don't redirect if already on login page
     if (window.location.pathname === '/login') {
@@ -55,8 +61,9 @@ async function handleResponse(res: Response, retryCount = 0): Promise<unknown> {
     }
 
     // Check if we've already retried this request
-    const requestKey = `${res.url}_${res.method}`
-    if (retryCount >= MAX_RETRIES || retryMap.get(requestKey) || 0 >= MAX_RETRIES) {
+    const requestKey = `${request.url}_${request.method}`
+    const retryAttempts = retryMap.get(requestKey) || 0
+    if (retryCount >= MAX_RETRIES || retryAttempts >= MAX_RETRIES) {
       // Clear auth and redirect to login
       clearAccessToken()
       window.location.href = '/login'
@@ -72,10 +79,17 @@ async function handleResponse(res: Response, retryCount = 0): Promise<unknown> {
     if (refreshed && accessToken) {
       // Retry original request with new token (non-recursive)
       const headers = getHeaders()
-      const retryRes = await fetch(res.url, {
+      const retryInit: RequestInit = {
+        method: request.method,
         headers,
         credentials: 'include',
-      })
+      }
+
+      if (request.body && request.method !== 'GET' && request.method !== 'HEAD') {
+        retryInit.body = request.body
+      }
+
+      const retryRes = await fetch(request.url, retryInit)
 
       // Clear retry map for successful request
       if (retryRes.ok) {
@@ -90,7 +104,7 @@ async function handleResponse(res: Response, retryCount = 0): Promise<unknown> {
         throw new Error('Session expired')
       }
 
-      return handleResponse(retryRes, retryCount + 1)
+      return handleResponse(retryRes, request, retryCount + 1)
     } else {
       // Clear auth and redirect to login
       clearAccessToken()
@@ -119,41 +133,45 @@ function getHeaders(): HeadersInit {
   return headers
 }
 
+function request(url: string, init: RequestInit = {}) {
+  const method = (init.method || 'GET').toUpperCase()
+  const requestMeta: RequestMeta = {
+    url,
+    method,
+    body: init.body ?? null,
+  }
+
+  return fetch(url, {
+    ...init,
+    headers: getHeaders(),
+    credentials: 'include',
+  }).then((res) => handleResponse(res, requestMeta, 0))
+}
+
 export const api = {
   get: (url: string) =>
-    fetch(`${API_URL}${url}`, {
-      headers: getHeaders(),
-      credentials: 'include',
-    }).then((res) => handleResponse(res, 0)),
+    request(`${API_URL}${url}`),
 
   post: (url: string, data: unknown) =>
-    fetch(`${API_URL}${url}`, {
+    request(`${API_URL}${url}`, {
       method: 'POST',
-      headers: getHeaders(),
-      credentials: 'include',
       body: JSON.stringify(data),
-    }).then((res) => handleResponse(res, 0)),
+    }),
 
   put: (url: string, data: unknown) =>
-    fetch(`${API_URL}${url}`, {
+    request(`${API_URL}${url}`, {
       method: 'PUT',
-      headers: getHeaders(),
-      credentials: 'include',
       body: JSON.stringify(data),
-    }).then((res) => handleResponse(res, 0)),
+    }),
 
   patch: (url: string, data: unknown) =>
-    fetch(`${API_URL}${url}`, {
+    request(`${API_URL}${url}`, {
       method: 'PATCH',
-      headers: getHeaders(),
-      credentials: 'include',
       body: JSON.stringify(data),
-    }).then((res) => handleResponse(res, 0)),
+    }),
 
   delete: (url: string) =>
-    fetch(`${API_URL}${url}`, {
+    request(`${API_URL}${url}`, {
       method: 'DELETE',
-      headers: getHeaders(),
-      credentials: 'include',
-    }).then((res) => handleResponse(res, 0)),
+    }),
 }

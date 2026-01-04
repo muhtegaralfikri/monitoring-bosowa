@@ -82,16 +82,16 @@
     justify-content: space-between;
     align-items: center;
     padding: 1rem 2rem;
-    background: white;
-    border-bottom: 1px solid var(--border, #e2e8f0);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    background: #1f4b8f;
+    border-bottom: none;
+    box-shadow: none;
     position: sticky;
     top: 0;
     z-index: 100;
   }
 
   .brand-link {
-    color: var(--primary, #2563eb);
+    color: #ffffff;
     text-decoration: none;
     cursor: pointer;
     background: none;
@@ -115,52 +115,52 @@
     padding: 0.5rem 1rem;
     border: none;
     background: transparent;
-    color: var(--text-muted, #64748b);
-    font-weight: 500;
+    color: rgba(255, 255, 255, 0.85);
+    font-weight: 600;
     cursor: pointer;
     border-radius: 0.375rem;
     transition: all 0.2s;
   }
 
   .nav-item:hover {
-    background: var(--bg, #f8fafc);
-    color: var(--text, #0f172a);
+    background: rgba(255, 255, 255, 0.18);
+    color: #ffffff;
   }
 
   .nav-item.active {
-    background: var(--primary, #2563eb);
-    color: white;
+    background: transparent;
+    color: #ffffff;
+    font-weight: 700;
   }
 
   .btn-logout {
     padding: 0.5rem 1rem;
-    border: 1px solid var(--danger, #ef4444);
+    border: 1px solid rgba(255, 255, 255, 0.7);
     background: transparent;
-    color: var(--danger, #ef4444);
-    font-weight: 500;
+    color: #ffffff;
+    font-weight: 600;
     cursor: pointer;
     border-radius: 0.375rem;
     transition: all 0.2s;
   }
 
   .btn-logout:hover {
-    background: var(--danger, #ef4444);
-    color: white;
+    background: rgba(255, 255, 255, 0.2);
   }
 
   .btn-login {
     padding: 0.5rem 1.5rem;
     border: none;
-    background: var(--primary, #2563eb);
-    color: white;
-    font-weight: 500;
+    background: transparent;
+    color: #ffffff;
+    font-weight: 600;
     cursor: pointer;
     border-radius: 0.375rem;
     transition: all 0.2s;
   }
 
   .btn-login:hover {
-    background: #1d4ed8;
+    background: rgba(255, 255, 255, 0.2);
   }
 
   /* Mobile menu toggle (hamburger) */
@@ -177,7 +177,7 @@
   .mobile-menu-toggle span {
     width: 24px;
     height: 2px;
-    background: var(--text, #0f172a);
+    background: #ffffff;
     border-radius: 2px;
     transition: all 0.3s ease;
   }
@@ -215,9 +215,9 @@
       right: 0;
       flex-direction: column;
       gap: 0;
-      background: white;
-      border-bottom: 1px solid var(--border, #e2e8f0);
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      background: #1f4b8f;
+      border-bottom: none;
+      box-shadow: 0 4px 6px rgba(15, 23, 42, 0.25);
       padding: 0;
       max-height: 0;
       overflow: hidden;
