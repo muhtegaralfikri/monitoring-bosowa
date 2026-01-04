@@ -1,0 +1,33 @@
+{
+  "name": "monitoring-bosowa-backend",
+  "version": "1.0.0",
+  "description": "Backend API for Monitoring BBM Bosowa",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^9.2.0",
+    "@fastify/cors": "^8.5.0",
+    "@fastify/jwt": "^7.2.4",
+    "bcrypt": "^5.1.1",
+    "dotenv": "^17.2.3",
+    "drizzle-orm": "^0.29.3",
+    "fastify": "^4.25.1",
+    "mysql2": "^3.6.5"
+  },
+  "devDependencies": {
+    "@types/bcrypt": "^5.0.2",
+    "@types/node": "^20.10.5",
+    "cross-env": "^10.1.0",
+    "drizzle-kit": "^0.20.9",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3"
+  }
+}
