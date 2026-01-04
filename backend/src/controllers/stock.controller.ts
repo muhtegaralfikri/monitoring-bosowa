@@ -170,8 +170,10 @@ export async function getStockHistoryHandler(request: FastifyRequest, reply: Fas
     const jwtUser = (request as any).jwtUser
     const query = request.query as StockHistoryQuery
 
-    const page = query.page || 1
-    const limit = query.limit || 20
+    const pageRaw = Number(query.page)
+    const limitRaw = Number(query.limit)
+    const page = Number.isFinite(pageRaw) && pageRaw > 0 ? Math.floor(pageRaw) : 1
+    const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.floor(limitRaw) : 20
     const offset = (page - 1) * limit
 
     // Build conditions
