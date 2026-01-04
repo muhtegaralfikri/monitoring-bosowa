@@ -202,11 +202,24 @@
   {/if}
 
   {#if showModal}
-    <div class="modal-overlay" onclick={closeModal}>
-      <div class="modal" onclick={handleModalClick}>
+    <div
+      class="modal-overlay"
+      role="presentation"
+      onclick={closeModal}
+      onkeydown={(e) => e.key === 'Escape' && closeModal()}
+    >
+      <div
+        class="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-title"
+        tabindex="-1"
+        onclick={handleModalClick}
+        onkeydown={(e) => e.key === 'Escape' && closeModal()}
+      >
         <div class="modal-header">
-          <h2>{editingUser ? 'Edit User' : 'Tambah User Baru'}</h2>
-          <button class="btn-close" onclick={closeModal}>✕</button>
+          <h2 id="modal-title">{editingUser ? 'Edit User' : 'Tambah User Baru'}</h2>
+          <button class="btn-close" onclick={closeModal} aria-label="Tutup modal">✕</button>
         </div>
 
         <form onsubmit={(e) => { e.preventDefault(); handleSubmit(); }}>

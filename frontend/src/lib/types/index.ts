@@ -79,6 +79,14 @@ export interface StockTrend {
   balance: string
 }
 
+export interface TodayStats {
+  location: string
+  initialStock: number
+  todayIn: number
+  todayOut: number
+  finalStock: number
+}
+
 export interface AuthResponse {
   user: User
   token: string

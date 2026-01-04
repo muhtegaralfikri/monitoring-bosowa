@@ -1,17 +1,17 @@
 <script lang="ts">
   interface Props {
-    currentPage: 'login' | 'dashboard' | 'history' | 'charts' | 'users' | 'logs'
-    onNavigate: (page: 'dashboard' | 'history' | 'charts' | 'users' | 'logs') => void
+    currentPage: 'login' | 'dashboard' | 'history' | 'users' | 'logs'
+    onNavigate: (page: 'dashboard' | 'history' | 'users' | 'logs' | 'login') => void
     onLogout: () => void
     isAdmin?: boolean
+    isAuthenticated?: boolean
   }
 
-  let { currentPage, onNavigate, onLogout, isAdmin = false }: Props = $props()
+  let { currentPage, onNavigate, onLogout, isAdmin = false, isAuthenticated = false }: Props = $props()
 
   const baseNavItems = [
-    { id: 'dashboard' as const, label: 'Dashboard' },
+    { id: 'dashboard' as const, label: 'Beranda' },
     { id: 'history' as const, label: 'Riwayat' },
-    { id: 'charts' as const, label: 'Grafik' },
   ]
 
   const navItems = $derived([
@@ -25,7 +25,7 @@
     mobileMenuOpen = false
   }
 
-  function handleNavigate(page: 'dashboard' | 'history' | 'charts' | 'users' | 'logs') {
+  function handleNavigate(page: 'dashboard' | 'history' | 'users' | 'logs' | 'login') {
     onNavigate(page)
     closeMobileMenu()
   }
@@ -54,16 +54,25 @@
   </button>
 
   <div class="navbar-menu" class:mobile-open={mobileMenuOpen}>
-    {#each navItems as item}
+    {#if isAuthenticated}
+      {#each navItems as item}
+        <button
+          class="nav-item"
+          class:active={currentPage === item.id}
+          onclick={() => handleNavigate(item.id)}
+        >
+          {item.label}
+        </button>
+      {/each}
+      <button class="btn-logout" onclick={onLogout}>Logout</button>
+    {:else}
       <button
-        class="nav-item"
-        class:active={currentPage === item.id}
-        onclick={() => handleNavigate(item.id)}
+        class="btn-login"
+        onclick={() => handleNavigate('login')}
       >
-        {item.label}
+        Login
       </button>
-    {/each}
-    <button class="btn-logout" onclick={onLogout}>Logout</button>
+    {/if}
   </div>
 </nav>
 
@@ -139,6 +148,21 @@
     color: white;
   }
 
+  .btn-login {
+    padding: 0.5rem 1.5rem;
+    border: none;
+    background: var(--primary, #2563eb);
+    color: white;
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: 0.375rem;
+    transition: all 0.2s;
+  }
+
+  .btn-login:hover {
+    background: #1d4ed8;
+  }
+
   /* Mobile menu toggle (hamburger) */
   .mobile-menu-toggle {
     display: none;
@@ -212,7 +236,8 @@
       border-radius: 0.375rem;
     }
 
-    .btn-logout {
+    .btn-logout,
+    .btn-login {
       width: 100%;
       text-align: center;
       margin-top: 0.5rem;

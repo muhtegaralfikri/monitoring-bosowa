@@ -15,11 +15,17 @@ function createAuthStore() {
     isAuthenticated: false,
   })
 
+  let initialized = false
+
   return {
     subscribe,
     init: async () => {
+      // Prevent multiple init calls
+      if (initialized) return
+      initialized = true
+
       try {
-        // First, try to refresh token to get new access token
+        // Try to refresh token to get new access token
         const refreshRes = await fetch(`${API_URL}/auth/refresh`, {
           method: 'POST',
           credentials: 'include',
@@ -36,15 +42,20 @@ function createAuthStore() {
           return
         }
 
-        // If refresh fails, try getMe (in case access token still valid)
-        const meData = await authService.getMe()
+        // If refresh fails, user is not authenticated
+        // Don't try to call getMe() as it will trigger another refresh loop
         update((state) => ({
           ...state,
-          user: meData.user,
-          isAuthenticated: true,
+          user: null,
+          isAuthenticated: false,
         }))
       } catch {
-        set({ user: null, isAuthenticated: false })
+        // On error, set as unauthenticated
+        update((state) => ({
+          ...state,
+          user: null,
+          isAuthenticated: false,
+        }))
       }
     },
     login: async (email: string, password: string) => {
@@ -62,7 +73,6 @@ function createAuthStore() {
       await authService.logout()
       clearAccessToken()
       set({ user: null, isAuthenticated: false })
-      window.location.href = '/login'
     },
   }
 }

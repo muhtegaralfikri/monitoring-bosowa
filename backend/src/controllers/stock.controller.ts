@@ -242,6 +242,103 @@ export async function getStockHistoryHandler(request: FastifyRequest, reply: Fas
   }
 }
 
+// Get today's statistics
+export async function getTodayStatsHandler(request: FastifyRequest, reply: FastifyReply) {
+  try {
+    const jwtUser = (request as any).jwtUser
+    const query = request.query as { location?: string }
+
+    // Get today's date range (start and end of today)
+    const today = new Date()
+    const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0)
+    const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999)
+
+    // Build location filter
+    const locationFilter = query.location || (jwtUser.role === 2 ? (jwtUser.location === 1 ? 'GENSET' : 'TUG_ASSIST') : undefined)
+
+    // Get initial stock (last balance before today)
+    const initialStocks = await db
+      .select({
+        location: stocks.location,
+        balance: stocks.balance,
+      })
+      .from(stocks)
+      .where(
+        and(
+          sql`DATE(created_at) < DATE(${startOfDay})`,
+          locationFilter ? eq(stocks.location, locationFilter as any) : undefined
+        )
+      )
+      .orderBy(desc(stocks.id))
+      .limit(100)
+
+    // Get today's transactions
+    const todayTransactions = await db
+      .select({
+        location: stocks.location,
+        type: stocks.type,
+        amount: stocks.amount,
+      })
+      .from(stocks)
+      .where(
+        and(
+          gte(stocks.createdAt, startOfDay),
+          lte(stocks.createdAt, endOfDay),
+          locationFilter ? eq(stocks.location, locationFilter as any) : undefined
+        )
+      )
+
+    // Get current/final stock
+    const finalStocks = await db
+      .select({
+        location: stocks.location,
+        balance: stocks.balance,
+      })
+      .from(stocks)
+      .where(
+        sql`(stocks.id IN (SELECT MAX(id) FROM stocks GROUP BY location)) ${
+          locationFilter ? sql`AND location = ${locationFilter}` : sql``
+        }`
+      )
+
+    // Group by location
+    const locations = locationFilter ? [locationFilter] : ['GENSET', 'TUG_ASSIST']
+
+    const result = locations.map((loc) => {
+      // Get initial stock for this location
+      const initialEntry = initialStocks.filter((s) => s.location === loc)[0]
+      const initialStock = initialEntry ? Number(initialEntry.balance) : 0
+
+      // Get today's IN total
+      const todayIn = todayTransactions
+        .filter((t) => t.location === loc && t.type === 'IN')
+        .reduce((sum, t) => sum + Number(t.amount), 0)
+
+      // Get today's OUT total
+      const todayOut = todayTransactions
+        .filter((t) => t.location === loc && t.type === 'OUT')
+        .reduce((sum, t) => sum + Number(t.amount), 0)
+
+      // Get final stock
+      const finalEntry = finalStocks.filter((s) => s.location === loc)[0]
+      const finalStock = finalEntry ? Number(finalEntry.balance) : 0
+
+      return {
+        location: loc,
+        initialStock,
+        todayIn,
+        todayOut,
+        finalStock,
+      }
+    })
+
+    return result
+  } catch (err: any) {
+    console.error('Today stats error:', err)
+    return reply.status(500).send({ error: 'Failed to get today statistics' })
+  }
+}
+
 // Get stock trend
 export async function getStockTrendHandler(request: FastifyRequest, reply: FastifyReply) {
   try {

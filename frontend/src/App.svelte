@@ -5,26 +5,60 @@
   import Login from './routes/Login.svelte'
   import Dashboard from './routes/Dashboard.svelte'
   import History from './routes/History.svelte'
-  import Charts from './routes/Charts.svelte'
   import Users from './routes/Users.svelte'
   import Logs from './routes/Logs.svelte'
   import Navbar from './lib/components/Navbar.svelte'
   import Toast from './lib/components/Toast.svelte'
 
-  let currentPage = $state<'login' | 'dashboard' | 'history' | 'charts' | 'users' | 'logs'>('login')
+  let currentPage = $state<'login' | 'dashboard' | 'history' | 'users' | 'logs'>('dashboard')
   let isLoading = $state(true)
 
+  // URL to page mapping
+  const pageRoutes: Record<string, 'login' | 'dashboard' | 'history' | 'users' | 'logs'> = {
+    '': 'dashboard',
+    '/': 'dashboard',
+    '/login': 'login',
+    '/dashboard': 'dashboard',
+    '/history': 'history',
+    '/users': 'users',
+    '/logs': 'logs',
+  }
+
+  // Page to URL mapping
+  const pageUrls: Record<'login' | 'dashboard' | 'history' | 'users' | 'logs', string> = {
+    login: '/login',
+    dashboard: '/',
+    history: '/history',
+    users: '/users',
+    logs: '/logs',
+  }
+
   onMount(async () => {
+    // Set initial URL to dashboard (clean URL)
+    if (window.location.pathname === '/login') {
+      window.history.replaceState({}, '', '/')
+    }
+
     await auth.init()
     isLoading = false
 
-    if ($auth.isAuthenticated) {
-      currentPage = 'dashboard'
-    }
+    // Set initial page based on URL
+    const path = window.location.pathname
+    currentPage = pageRoutes[path] || 'dashboard'
+
+    // Handle browser back/forward
+    window.addEventListener('popstate', handlePopState)
   })
+
+  function handlePopState() {
+    const path = window.location.pathname
+    currentPage = pageRoutes[path] || 'dashboard'
+  }
 
   function navigate(page: typeof currentPage) {
     currentPage = page
+    const url = pageUrls[page]
+    window.history.pushState({}, '', url)
   }
 
   function handleLogout() {
@@ -41,7 +75,7 @@
     <div class="spinner"></div>
     <p>Loading...</p>
   </div>
-{:else if !$auth.isAuthenticated}
+{:else if currentPage === 'login'}
   <Login onLogin={handleLogin} />
 {:else}
   <div class="app">
@@ -50,6 +84,7 @@
       onNavigate={navigate}
       onLogout={handleLogout}
       isAdmin={$auth.user?.role === 1}
+      isAuthenticated={$auth.isAuthenticated}
     />
 
     <main class="main">
@@ -57,8 +92,6 @@
         <Dashboard />
       {:else if currentPage === 'history'}
         <History />
-      {:else if currentPage === 'charts'}
-        <Charts />
       {:else if currentPage === 'users' && $auth.user?.role === 1}
         <Users />
       {:else if currentPage === 'logs' && $auth.user?.role === 1}

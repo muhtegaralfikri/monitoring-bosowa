@@ -1,59 +1,243 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { stockService } from '../lib/services/stock.service'
-  import { notificationService } from '../lib/services/notification.service'
   import { toast } from '../lib/stores/toast'
-  import { isAdmin } from '../lib/stores/auth'
-  import { formatNumber } from '../lib/utils/format'
-  import type { StockSummary, StockAlert, Alert } from '../lib/types'
-  import AlertBanner from '../lib/components/AlertBanner.svelte'
+  import Chart from 'chart.js/auto'
 
-  let summaries = $state<StockSummary[]>([])
-  let alerts = $state<Alert[]>([])
   let loading = $state(true)
-  let alertsDismissed = $state(false)
+  let chartInstance: Chart | null = null
+  let canvasElement = $state<HTMLCanvasElement | undefined>(undefined)
+
+  // Filter options
+  let timeRange = $state<'7d' | '30d' | '90d' | 'custom'>('30d')
+  let selectedLocation = $state<'GENSET' | 'TUG_ASSIST' | 'ALL'>('ALL')
+
+  // Custom date range
+  let customStartDate = $state('')
+  let customEndDate = $state('')
 
   onMount(async () => {
-    await Promise.all([loadSummary(), checkLowStock()])
+    await loadChartData()
   })
 
-  async function loadSummary() {
+  async function loadChartData() {
     try {
       loading = true
-      summaries = await stockService.getSummary()
+
+      let startDate: Date
+      let endDate = new Date()
+      let days: number
+
+      if (timeRange === 'custom') {
+        // Validate custom dates
+        if (!customStartDate || !customEndDate) {
+          toast.error('Pilih tanggal mulai dan tanggal akhir')
+          loading = false
+          return
+        }
+
+        startDate = new Date(customStartDate)
+        endDate = new Date(customEndDate)
+
+        // Validate end date >= start date
+        if (endDate < startDate) {
+          toast.error('Tanggal akhir harus lebih besar atau sama dengan tanggal mulai')
+          loading = false
+          return
+        }
+
+        // Calculate days between dates
+        days = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1
+      } else {
+        // Predefined ranges
+        startDate = new Date()
+        days = timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : 90
+        startDate.setDate(startDate.getDate() - days)
+      }
+
+      const response = await stockService.getHistory({
+        startDate: startDate.toISOString().split('T')[0],
+        endDate: endDate.toISOString().split('T')[0],
+        location: selectedLocation === 'ALL' ? undefined : selectedLocation,
+        limit: 10000,
+      })
+
+      // Process data for chart
+      const chartData = processChartData(response.data, days, startDate, endDate)
+      renderChart(chartData)
     } catch (err: any) {
-      toast.error(err.message || 'Gagal memuat data')
+      toast.error(err.message || 'Gagal memuat data grafik')
     } finally {
       loading = false
     }
   }
 
-  async function checkLowStock() {
-    try {
-      const response = await notificationService.checkLowStock()
-      if (response.hasAlerts) {
-        alerts = response.alerts.map((alert) => ({
-          message: alert.message,
-          type: alert.type || (alert.balance < response.threshold / 2 ? 'danger' : 'warning'),
-        }))
-        alertsDismissed = false
-      }
-    } catch (err: any) {
-      console.error('Failed to check low stock:', err)
+  function processChartData(data: any[], days: number, startDate: Date, endDate: Date) {
+    // Initialize date labels
+    const labels: string[] = []
+    const gensetData: number[] = []
+    const tugAssistData: number[] = []
+
+    for (let i = 0; i < days; i++) {
+      const date = new Date(startDate)
+      date.setDate(date.getDate() + i)
+      labels.push(date.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit' }))
     }
+
+    // Track balances per location per day
+    const gensetBalances: Record<string, number> = {}
+    const tugAssistBalances: Record<string, number> = {}
+
+    // Initialize with first known balance or 0
+    data.forEach((item) => {
+      const dateKey = new Date(item.created_at).toLocaleDateString('id-ID', {
+        day: '2-digit',
+        month: '2-digit',
+      })
+
+      if (item.location === 'GENSET') {
+        gensetBalances[dateKey] = Number(item.balance)
+      } else {
+        tugAssistBalances[dateKey] = Number(item.balance)
+      }
+    })
+
+    // Fill arrays with balances (use last known balance)
+    let lastGenset = 0
+    let lastTugAssist = 0
+
+    labels.forEach((label) => {
+      if (gensetBalances[label] !== undefined) {
+        lastGenset = gensetBalances[label]
+      }
+      if (tugAssistBalances[label] !== undefined) {
+        lastTugAssist = tugAssistBalances[label]
+      }
+      gensetData.push(lastGenset)
+      tugAssistData.push(lastTugAssist)
+    })
+
+    return { labels, gensetData, tugAssistData }
   }
 
-  function dismissAlerts() {
-    alertsDismissed = true
+  function renderChart(data: { labels: string[]; gensetData: number[]; tugAssistData: number[] }) {
+    if (chartInstance) {
+      chartInstance.destroy()
+    }
+
+    if (!canvasElement) return
+
+    const ctx = canvasElement.getContext('2d')
+    if (!ctx) return
+
+    chartInstance = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: data.labels,
+        datasets: [
+          {
+            label: 'GENSET',
+            data: data.gensetData,
+            borderColor: '#2563eb',
+            backgroundColor: 'rgba(37, 99, 235, 0.1)',
+            fill: true,
+            tension: 0.4,
+          },
+          {
+            label: 'TUG ASSIST',
+            data: data.tugAssistData,
+            borderColor: '#16a34a',
+            backgroundColor: 'rgba(22, 163, 74, 0.1)',
+            fill: true,
+            tension: 0.4,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'top',
+          },
+          tooltip: {
+            callbacks: {
+              label: (context) => {
+                return `${context.dataset.label}: ${context.parsed.y} Liter`
+              },
+            },
+          },
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            title: {
+              display: true,
+              text: 'Liter',
+            },
+          },
+        },
+      },
+    })
+  }
+
+  function refreshChart() {
+    loadChartData()
   }
 </script>
 
 <div class="dashboard">
-  <h1>Dashboard</h1>
+  <div class="header">
+    <h1>Grafik Stok BBM</h1>
+    <p class="subtitle">Monitoring stok BBM GENSET dan TUG ASSIST</p>
+  </div>
 
-  {#if alerts.length > 0 && !alertsDismissed}
-    <AlertBanner alerts={alerts} onDismiss={dismissAlerts} />
-  {/if}
+  <div class="filters">
+    <div class="filter-group">
+      <label for="timeRange">Rentang Waktu</label>
+      <select id="timeRange" bind:value={timeRange} onchange={refreshChart}>
+        <option value="7d">7 Hari Terakhir</option>
+        <option value="30d">30 Hari Terakhir</option>
+        <option value="90d">90 Hari Terakhir</option>
+        <option value="custom">Custom</option>
+      </select>
+    </div>
+
+    {#if timeRange === 'custom'}
+      <div class="filter-group">
+        <label for="startDate">Tanggal Mulai</label>
+        <input
+          id="startDate"
+          type="date"
+          class="input"
+          bind:value={customStartDate}
+        />
+      </div>
+
+      <div class="filter-group">
+        <label for="endDate">Tanggal Akhir</label>
+        <input
+          id="endDate"
+          type="date"
+          class="input"
+          bind:value={customEndDate}
+        />
+      </div>
+
+      <div class="filter-group">
+        <button class="btn btn-primary" onclick={refreshChart}>Terapkan</button>
+      </div>
+    {/if}
+
+    <div class="filter-group">
+      <label for="location">Lokasi</label>
+      <select id="location" bind:value={selectedLocation} onchange={refreshChart}>
+        <option value="ALL">Semua Lokasi</option>
+        <option value="GENSET">GENSET</option>
+        <option value="TUG_ASSIST">TUG ASSIST</option>
+      </select>
+    </div>
+  </div>
 
   {#if loading}
     <div class="loading">
@@ -61,20 +245,64 @@
       <p>Loading...</p>
     </div>
   {:else}
-    <div class="summary-grid">
-      {#each summaries as item}
-        <div class="summary-card">
-          <h2>{item.location}</h2>
-          <div class="balance">
-            {formatNumber(item.balance)} <span class="unit">Liter</span>
-          </div>
-        </div>
-      {/each}
+    <div class="chart-container">
+      <canvas bind:this={canvasElement}></canvas>
     </div>
   {/if}
 </div>
 
 <style>
+  .header {
+    margin-bottom: 2rem;
+  }
+
+  .header h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--text, #0f172a);
+    margin-bottom: 0.5rem;
+  }
+
+  .subtitle {
+    font-size: 1rem;
+    color: var(--text-muted, #64748b);
+  }
+
+  .filters {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  .filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .filter-group label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-muted, #64748b);
+  }
+
+  .filter-group select,
+  .filter-group input {
+    padding: 0.5rem;
+    border: 1px solid var(--border, #e2e8f0);
+    border-radius: 0.375rem;
+    min-width: 180px;
+  }
+
+  .chart-container {
+    background: var(--surface, #ffffff);
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    height: 400px;
+  }
+
   .loading {
     display: flex;
     flex-direction: column;
@@ -83,54 +311,32 @@
     padding: 3rem;
   }
 
-  .summary-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 1rem;
-    margin-top: 1rem;
-  }
-
-  .summary-card {
-    background: var(--surface, #ffffff);
-    border-radius: 0.5rem;
-    padding: 1.5rem;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  }
-
-  .summary-card h2 {
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: var(--text-muted, #64748b);
-    margin-bottom: 0.5rem;
-  }
-
-  .balance {
-    font-size: 2rem;
-    font-weight: 700;
-    color: var(--primary, #2563eb);
-  }
-
-  .unit {
-    font-size: 1rem;
-    font-weight: 400;
-    color: var(--text-muted, #64748b);
-  }
-
   @media (max-width: 768px) {
-    .summary-grid {
-      grid-template-columns: 1fr;
-      gap: 0.75rem;
+    .filters {
+      gap: 0.5rem;
     }
 
-    .summary-card {
-      padding: 1.25rem;
+    .filter-group {
+      flex: 1 1 100%;
     }
 
-    .balance {
-      font-size: 1.75rem;
+    .filter-group select,
+    .filter-group input {
+      min-width: 100%;
+      font-size: 0.8125rem;
+      padding: 0.5rem 0.625rem;
     }
 
-    .unit {
+    .chart-container {
+      padding: 1rem;
+      height: 300px;
+    }
+
+    .header h1 {
+      font-size: 1.5rem;
+    }
+
+    .subtitle {
       font-size: 0.875rem;
     }
   }

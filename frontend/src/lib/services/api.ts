@@ -43,24 +43,54 @@ async function refreshAccessToken(): Promise<boolean> {
   return refreshPromise
 }
 
-async function handleResponse(res: Response): Promise<unknown> {
+// Track retry attempts to prevent infinite loops
+const retryMap = new Map<string, number>()
+const MAX_RETRIES = 1
+
+async function handleResponse(res: Response, retryCount = 0): Promise<unknown> {
   if (res.status === 401) {
     // Don't redirect if already on login page
     if (window.location.pathname === '/login') {
       throw new Error('Unauthorized')
     }
 
+    // Check if we've already retried this request
+    const requestKey = `${res.url}_${res.method}`
+    if (retryCount >= MAX_RETRIES || retryMap.get(requestKey) || 0 >= MAX_RETRIES) {
+      // Clear auth and redirect to login
+      clearAccessToken()
+      window.location.href = '/login'
+      throw new Error('Session expired')
+    }
+
+    // Mark as retrying
+    retryMap.set(requestKey, (retryMap.get(requestKey) || 0) + 1)
+
     // Try refresh token
     const refreshed = await refreshAccessToken()
 
     if (refreshed && accessToken) {
-      // Retry original request with new token
-      return fetch(res.url, {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-        },
+      // Retry original request with new token (non-recursive)
+      const headers = getHeaders()
+      const retryRes = await fetch(res.url, {
+        headers,
         credentials: 'include',
-      }).then(handleResponse)
+      })
+
+      // Clear retry map for successful request
+      if (retryRes.ok) {
+        retryMap.delete(requestKey)
+        return retryRes.json()
+      }
+
+      // If still 401 after refresh, give up
+      if (retryRes.status === 401) {
+        clearAccessToken()
+        window.location.href = '/login'
+        throw new Error('Session expired')
+      }
+
+      return handleResponse(retryRes, retryCount + 1)
     } else {
       // Clear auth and redirect to login
       clearAccessToken()
@@ -94,7 +124,7 @@ export const api = {
     fetch(`${API_URL}${url}`, {
       headers: getHeaders(),
       credentials: 'include',
-    }).then(handleResponse),
+    }).then((res) => handleResponse(res, 0)),
 
   post: (url: string, data: unknown) =>
     fetch(`${API_URL}${url}`, {
@@ -102,7 +132,7 @@ export const api = {
       headers: getHeaders(),
       credentials: 'include',
       body: JSON.stringify(data),
-    }).then(handleResponse),
+    }).then((res) => handleResponse(res, 0)),
 
   put: (url: string, data: unknown) =>
     fetch(`${API_URL}${url}`, {
@@ -110,7 +140,7 @@ export const api = {
       headers: getHeaders(),
       credentials: 'include',
       body: JSON.stringify(data),
-    }).then(handleResponse),
+    }).then((res) => handleResponse(res, 0)),
 
   patch: (url: string, data: unknown) =>
     fetch(`${API_URL}${url}`, {
@@ -118,12 +148,12 @@ export const api = {
       headers: getHeaders(),
       credentials: 'include',
       body: JSON.stringify(data),
-    }).then(handleResponse),
+    }).then((res) => handleResponse(res, 0)),
 
   delete: (url: string) =>
     fetch(`${API_URL}${url}`, {
       method: 'DELETE',
       headers: getHeaders(),
       credentials: 'include',
-    }).then(handleResponse),
+    }).then((res) => handleResponse(res, 0)),
 }

@@ -1,9 +1,14 @@
 import { api } from './api'
-import type { StockSummary, StockInput, StockOutInput, StockHistoryResponse, StockTrend } from '../types'
+import type { StockSummary, StockInput, StockOutInput, StockHistoryResponse, StockTrend, TodayStats } from '../types'
 
 export const stockService = {
   getSummary(): Promise<StockSummary[]> {
     return api.get('/stock/summary') as Promise<StockSummary[]>
+  },
+
+  getTodayStats(location?: string): Promise<TodayStats[]> {
+    const searchParams = location ? `?location=${location}` : ''
+    return api.get(`/stock/today${searchParams}`) as Promise<TodayStats[]>
   },
 
   stockIn(data: StockInput): Promise<unknown> {
