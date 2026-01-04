@@ -1,7 +1,7 @@
 <script lang="ts">
   interface Props {
-    currentPage: 'login' | 'dashboard' | 'history' | 'charts' | 'users'
-    onNavigate: (page: 'dashboard' | 'history' | 'charts' | 'users') => void
+    currentPage: 'login' | 'dashboard' | 'history' | 'charts' | 'users' | 'logs'
+    onNavigate: (page: 'dashboard' | 'history' | 'charts' | 'users' | 'logs') => void
     onLogout: () => void
     isAdmin?: boolean
   }
@@ -16,20 +16,49 @@
 
   const navItems = $derived([
     ...baseNavItems,
-    ...(isAdmin ? [{ id: 'users' as const, label: 'Users' }] : [])
+    ...(isAdmin ? [{ id: 'users' as const, label: 'Users' }, { id: 'logs' as const, label: 'Logs' }] : [])
   ])
+
+  let mobileMenuOpen = $state(false)
+
+  function closeMobileMenu() {
+    mobileMenuOpen = false
+  }
+
+  function handleNavigate(page: 'dashboard' | 'history' | 'charts' | 'users' | 'logs') {
+    onNavigate(page)
+    closeMobileMenu()
+  }
 </script>
 
 <nav class="navbar">
   <div class="navbar-brand">
-    <a onclick={() => onNavigate('dashboard')}>Monitoring BBM</a>
+    <button
+      class="brand-link"
+      onclick={() => handleNavigate('dashboard')}
+      onkeydown={(e) => e.key === 'Enter' && handleNavigate('dashboard')}
+    >
+      Monitoring BBM
+    </button>
   </div>
-  <div class="navbar-menu">
+
+  <button
+    class="mobile-menu-toggle"
+    class:open={mobileMenuOpen}
+    onclick={() => mobileMenuOpen = !mobileMenuOpen}
+    aria-label="Toggle menu"
+  >
+    <span></span>
+    <span></span>
+    <span></span>
+  </button>
+
+  <div class="navbar-menu" class:mobile-open={mobileMenuOpen}>
     {#each navItems as item}
       <button
         class="nav-item"
         class:active={currentPage === item.id}
-        onclick={() => onNavigate(item.id)}
+        onclick={() => handleNavigate(item.id)}
       >
         {item.label}
       </button>
@@ -47,14 +76,24 @@
     background: white;
     border-bottom: 1px solid var(--border, #e2e8f0);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    position: sticky;
+    top: 0;
+    z-index: 100;
   }
 
-  .navbar-brand a {
+  .brand-link {
     font-weight: 700;
     font-size: 1.25rem;
     color: var(--primary, #2563eb);
     text-decoration: none;
     cursor: pointer;
+    background: none;
+    border: none;
+    padding: 0;
+  }
+
+  .brand-link:hover {
+    text-decoration: underline;
   }
 
   .navbar-menu {
@@ -98,5 +137,85 @@
   .btn-logout:hover {
     background: var(--danger, #ef4444);
     color: white;
+  }
+
+  /* Mobile menu toggle (hamburger) */
+  .mobile-menu-toggle {
+    display: none;
+    flex-direction: column;
+    gap: 4px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.5rem;
+  }
+
+  .mobile-menu-toggle span {
+    width: 24px;
+    height: 2px;
+    background: var(--text, #0f172a);
+    border-radius: 2px;
+    transition: all 0.3s ease;
+  }
+
+  .mobile-menu-toggle.open span:nth-child(1) {
+    transform: rotate(45deg) translate(6px, 6px);
+  }
+
+  .mobile-menu-toggle.open span:nth-child(2) {
+    opacity: 0;
+  }
+
+  .mobile-menu-toggle.open span:nth-child(3) {
+    transform: rotate(-45deg) translate(6px, -6px);
+  }
+
+  /* Mobile responsive */
+  @media (max-width: 768px) {
+    .navbar {
+      padding: 0.75rem 1rem;
+    }
+
+    .brand-link {
+      font-size: 1rem;
+    }
+
+    .mobile-menu-toggle {
+      display: flex;
+    }
+
+    .navbar-menu {
+      position: fixed;
+      top: 60px;
+      left: 0;
+      right: 0;
+      flex-direction: column;
+      gap: 0;
+      background: white;
+      border-bottom: 1px solid var(--border, #e2e8f0);
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      padding: 0;
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease;
+    }
+
+    .navbar-menu.mobile-open {
+      max-height: 400px;
+      padding: 1rem;
+    }
+
+    .nav-item {
+      width: 100%;
+      text-align: left;
+      padding: 0.875rem 1rem;
+      border-radius: 0.375rem;
+    }
+
+    .btn-logout {
+      width: 100%;
+      text-align: center;
+      margin-top: 0.5rem;
+    }
   }
 </style>

@@ -3,6 +3,7 @@ import { eq, desc, and, gte, lte, sql } from 'drizzle-orm'
 import { stocks } from '../db/schema'
 import { db } from '../config/database'
 import type { StockInput, StockHistoryQuery } from '../types'
+import ExcelJS from 'exceljs'
 
 // Get stock summary
 export async function getStockSummaryHandler(request: FastifyRequest, reply: FastifyReply) {
@@ -270,5 +271,143 @@ export async function getStockTrendHandler(request: FastifyRequest, reply: Fasti
     return trendData
   } catch (err: any) {
     return reply.status(500).send({ error: 'Failed to get stock trend' })
+  }
+}
+
+// Export stock history to Excel
+export async function exportStockHistoryHandler(request: FastifyRequest, reply: FastifyReply) {
+  try {
+    const jwtUser = (request as any).jwtUser
+    const query = request.query as StockHistoryQuery
+
+    // Build conditions
+    const conditions: any[] = []
+
+    if (query.type) {
+      conditions.push(eq(stocks.type, query.type))
+    }
+
+    if (query.location) {
+      conditions.push(eq(stocks.location, query.location))
+    } else if (jwtUser.role === 2) {
+      // Operasional user can only see their location
+      conditions.push(eq(stocks.location, jwtUser.location === 1 ? 'GENSET' : 'TUG_ASSIST'))
+    }
+
+    if (query.startDate) {
+      conditions.push(gte(stocks.createdAt, new Date(query.startDate)))
+    }
+
+    if (query.endDate) {
+      // Include the entire end date
+      const endDate = new Date(query.endDate)
+      endDate.setHours(23, 59, 59, 999)
+      conditions.push(lte(stocks.createdAt, endDate))
+    }
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined
+
+    // Get all stocks (no pagination for export)
+    const stockList = await db
+      .select({
+        id: stocks.id,
+        type: stocks.type,
+        amount: stocks.amount,
+        location: stocks.location,
+        balance: stocks.balance,
+        notes: stocks.notes,
+        createdAt: stocks.createdAt,
+        userName: sql<string>`(SELECT name FROM users WHERE id = stocks.user_id)`,
+      })
+      .from(stocks)
+      .where(whereClause)
+      .orderBy(desc(stocks.id))
+
+    // Create Excel workbook
+    const workbook = new ExcelJS.Workbook()
+    const worksheet = workbook.addWorksheet('Riwayat Stok BBM')
+
+    // Define columns
+    worksheet.columns = [
+      { header: 'ID', key: 'id', width: 10 },
+      { header: 'Tanggal', key: 'createdAt', width: 20 },
+      { header: 'Tipe', key: 'type', width: 10 },
+      { header: 'Lokasi', key: 'location', width: 15 },
+      { header: 'Jumlah (Liter)', key: 'amount', width: 15 },
+      { header: 'Saldo (Liter)', key: 'balance', width: 15 },
+      { header: 'Keterangan', key: 'notes', width: 30 },
+      { header: 'User', key: 'userName', width: 20 },
+    ]
+
+    // Style header row
+    const headerRow = worksheet.getRow(1)
+    headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } }
+    headerRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF2563EB' },
+    }
+    headerRow.alignment = { vertical: 'middle', horizontal: 'center' }
+    headerRow.height = 25
+
+    // Add data rows
+    stockList.forEach((stock) => {
+      const row = worksheet.addRow({
+        id: stock.id,
+        createdAt: new Date(stock.createdAt).toLocaleString('id-ID'),
+        type: stock.type,
+        location: stock.location,
+        amount: Number(stock.amount).toLocaleString('id-ID'),
+        balance: Number(stock.balance).toLocaleString('id-ID'),
+        notes: stock.notes || '-',
+        userName: stock.userName || '-',
+      })
+
+      // Style type cell
+      const typeCell = row.getCell('type')
+      if (stock.type === 'IN') {
+        typeCell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFDCfce7' },
+        }
+        typeCell.font = { color: { argb: 'FF166534' } }
+      } else {
+        typeCell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFfee2e2' },
+        }
+        typeCell.font = { color: { argb: 'FF991b1b' } }
+      }
+    })
+
+    // Add borders to all cells
+    worksheet.eachRow((row) => {
+      row.eachCell((cell) => {
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FFe2e8f0' } },
+          left: { style: 'thin', color: { argb: 'FFe2e8f0' } },
+          bottom: { style: 'thin', color: { argb: 'FFe2e8f0' } },
+          right: { style: 'thin', color: { argb: 'FFe2e8f0' } },
+        }
+      })
+    })
+
+    // Generate filename with timestamp
+    const timestamp = new Date().toISOString().slice(0, 10)
+    const filename = `riwayat-stok-bbm-${timestamp}.xlsx`
+
+    // Set response headers
+    reply.header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    reply.header('Content-Disposition', `attachment; filename="${filename}"`)
+
+    // Generate buffer
+    const buffer = await workbook.xlsx.writeBuffer()
+
+    return reply.send(buffer)
+  } catch (err: any) {
+    console.error('Export error:', err)
+    return reply.status(500).send({ error: 'Failed to export stock history' })
   }
 }

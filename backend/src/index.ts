@@ -3,9 +3,12 @@ import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import jwt from '@fastify/jwt'
 import cookie from '@fastify/cookie'
+import rateLimit from '@fastify/rate-limit'
 import { authRoutes } from './routes/auth.routes'
 import { stockRoutes } from './routes/stock.routes'
 import { userRoutes } from './routes/user.routes'
+import { notificationRoutes } from './routes/notification.routes'
+import { logsRoutes } from './routes/logs.routes'
 
 const fastify = Fastify({
   logger: true,
@@ -25,6 +28,13 @@ await fastify.register(cookie, {
   secret: process.env.COOKIE_SECRET || 'your-cookie-secret-change-this',
 })
 
+// Rate limiting
+await fastify.register(rateLimit, {
+  max: 100, // 100 requests per minute
+  timeWindow: '1 minute',
+  skipOnError: true,
+})
+
 // Health check
 fastify.get('/', async (request, reply) => {
   return {
@@ -38,6 +48,8 @@ fastify.get('/', async (request, reply) => {
 await fastify.register(authRoutes, { prefix: '/auth' })
 await fastify.register(stockRoutes, { prefix: '/stock' })
 await fastify.register(userRoutes, { prefix: '/users' })
+await fastify.register(notificationRoutes, { prefix: '/notifications' })
+await fastify.register(logsRoutes, { prefix: '/logs' })
 
 // Start server
 const start = async () => {

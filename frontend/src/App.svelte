@@ -7,10 +7,11 @@
   import History from './routes/History.svelte'
   import Charts from './routes/Charts.svelte'
   import Users from './routes/Users.svelte'
+  import Logs from './routes/Logs.svelte'
   import Navbar from './lib/components/Navbar.svelte'
   import Toast from './lib/components/Toast.svelte'
 
-  let currentPage = $state<'login' | 'dashboard' | 'history' | 'charts' | 'users'>('login')
+  let currentPage = $state<'login' | 'dashboard' | 'history' | 'charts' | 'users' | 'logs'>('login')
   let isLoading = $state(true)
 
   onMount(async () => {
@@ -60,6 +61,8 @@
         <Charts />
       {:else if currentPage === 'users' && $auth.user?.role === 1}
         <Users />
+      {:else if currentPage === 'logs' && $auth.user?.role === 1}
+        <Logs />
       {/if}
     </main>
 
@@ -89,5 +92,12 @@
     max-width: 1200px;
     margin: 0 auto;
     width: 100%;
+    box-sizing: border-box;
+  }
+
+  @media (max-width: 768px) {
+    .main {
+      padding: 1rem 0.75rem;
+    }
   }
 </style>

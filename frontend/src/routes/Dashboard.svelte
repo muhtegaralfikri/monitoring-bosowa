@@ -1,16 +1,20 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { stockService } from '../lib/services/stock.service'
+  import { notificationService } from '../lib/services/notification.service'
   import { toast } from '../lib/stores/toast'
   import { isAdmin } from '../lib/stores/auth'
   import { formatNumber } from '../lib/utils/format'
-  import type { StockSummary } from '../lib/types'
+  import type { StockSummary, StockAlert, Alert } from '../lib/types'
+  import AlertBanner from '../lib/components/AlertBanner.svelte'
 
   let summaries = $state<StockSummary[]>([])
+  let alerts = $state<Alert[]>([])
   let loading = $state(true)
+  let alertsDismissed = $state(false)
 
   onMount(async () => {
-    await loadSummary()
+    await Promise.all([loadSummary(), checkLowStock()])
   })
 
   async function loadSummary() {
@@ -23,10 +27,33 @@
       loading = false
     }
   }
+
+  async function checkLowStock() {
+    try {
+      const response = await notificationService.checkLowStock()
+      if (response.hasAlerts) {
+        alerts = response.alerts.map((alert) => ({
+          message: alert.message,
+          type: alert.type || (alert.balance < response.threshold / 2 ? 'danger' : 'warning'),
+        }))
+        alertsDismissed = false
+      }
+    } catch (err: any) {
+      console.error('Failed to check low stock:', err)
+    }
+  }
+
+  function dismissAlerts() {
+    alertsDismissed = true
+  }
 </script>
 
 <div class="dashboard">
   <h1>Dashboard</h1>
+
+  {#if alerts.length > 0 && !alertsDismissed}
+    <AlertBanner alerts={alerts} onDismiss={dismissAlerts} />
+  {/if}
 
   {#if loading}
     <div class="loading">
@@ -87,5 +114,24 @@
     font-size: 1rem;
     font-weight: 400;
     color: var(--text-muted, #64748b);
+  }
+
+  @media (max-width: 768px) {
+    .summary-grid {
+      grid-template-columns: 1fr;
+      gap: 0.75rem;
+    }
+
+    .summary-card {
+      padding: 1.25rem;
+    }
+
+    .balance {
+      font-size: 1.75rem;
+    }
+
+    .unit {
+      font-size: 0.875rem;
+    }
   }
 </style>

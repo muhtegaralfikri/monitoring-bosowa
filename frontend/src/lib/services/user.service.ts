@@ -27,6 +27,6 @@ export const userService = {
   },
 
   toggleUserStatus(id: number): Promise<{ data: User }> {
-    return api.patch(`/users/${id}/toggle-status`) as Promise<{ data: User }>
+    return api.patch(`/users/${id}/toggle-status`, {}) as Promise<{ data: User }>
   },
 }

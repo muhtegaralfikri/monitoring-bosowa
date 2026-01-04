@@ -153,3 +153,26 @@ body {
     transform: rotate(360deg);
   }
 }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .container {
+    padding: 0.75rem;
+  }
+
+  .btn {
+    padding: 0.625rem 0.875rem;
+    font-size: 0.8125rem;
+  }
+
+  .toast-container {
+    left: 1rem;
+    right: 1rem;
+    top: 0.5rem;
+  }
+
+  .toast {
+    font-size: 0.8125rem;
+    padding: 0.625rem 0.875rem;
+  }
+}

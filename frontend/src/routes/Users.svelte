@@ -470,4 +470,65 @@
       transform: rotate(360deg);
     }
   }
+
+  @media (max-width: 768px) {
+    .page-header {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 1rem;
+    }
+
+    .page-header .btn {
+      width: 100%;
+    }
+
+    .table th,
+    .table td {
+      padding: 0.5rem 0.625rem;
+      font-size: 0.8125rem;
+    }
+
+    .table th:not(:first-child):not(:last-child),
+    .table td:not(:first-child):not(:last-child) {
+      white-space: nowrap;
+    }
+
+    .modal {
+      max-width: 100%;
+      height: 100%;
+      max-height: 100vh;
+      border-radius: 0;
+    }
+
+    .modal-header {
+      padding: 0.875rem 1rem;
+    }
+
+    .modal-header h2 {
+      font-size: 1.125rem;
+    }
+
+    .modal-body {
+      padding: 1rem;
+    }
+
+    .form-row {
+      grid-template-columns: 1fr;
+      gap: 0.75rem;
+    }
+
+    .modal-footer {
+      padding: 0.875rem 1rem;
+      flex-direction: column-reverse;
+    }
+
+    .modal-footer .btn {
+      width: 100%;
+    }
+
+    .actions {
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+  }
 </style>

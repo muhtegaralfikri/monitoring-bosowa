@@ -7,11 +7,15 @@
 
   let loading = $state(true)
   let chartInstance: Chart | null = null
-  let canvasElement: HTMLCanvasElement
+  let canvasElement = $state<HTMLCanvasElement | undefined>(undefined)
 
   // Filter options
-  let timeRange = $state<'7d' | '30d' | '90d'>('30d')
+  let timeRange = $state<'7d' | '30d' | '90d' | 'custom'>('30d')
   let selectedLocation = $state<'GENSET' | 'TUG_ASSIST' | 'ALL'>('ALL')
+
+  // Custom date range
+  let customStartDate = $state('')
+  let customEndDate = $state('')
 
   onMount(async () => {
     await loadChartData()
@@ -21,21 +25,46 @@
     try {
       loading = true
 
-      // Calculate date range
-      const endDate = new Date()
-      const startDate = new Date()
-      const days = timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : 90
-      startDate.setDate(startDate.getDate() - days)
+      let startDate: Date
+      let endDate = new Date()
+      let days: number
+
+      if (timeRange === 'custom') {
+        // Validate custom dates
+        if (!customStartDate || !customEndDate) {
+          toast.error('Pilih tanggal mulai dan tanggal akhir')
+          loading = false
+          return
+        }
+
+        startDate = new Date(customStartDate)
+        endDate = new Date(customEndDate)
+
+        // Validate end date >= start date
+        if (endDate < startDate) {
+          toast.error('Tanggal akhir harus lebih besar atau sama dengan tanggal mulai')
+          loading = false
+          return
+        }
+
+        // Calculate days between dates
+        days = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1
+      } else {
+        // Predefined ranges
+        startDate = new Date()
+        days = timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : 90
+        startDate.setDate(startDate.getDate() - days)
+      }
 
       const response = await stockService.getHistory({
         startDate: startDate.toISOString().split('T')[0],
         endDate: endDate.toISOString().split('T')[0],
-        location: selectedLocation === 'ALL' ? '' : selectedLocation,
-        limit: 1000,
+        location: selectedLocation === 'ALL' ? undefined : selectedLocation,
+        limit: 10000,
       })
 
       // Process data for chart
-      const chartData = processChartData(response.data, days)
+      const chartData = processChartData(response.data, days, startDate, endDate)
       renderChart(chartData)
     } catch (err: any) {
       toast.error(err.message || 'Gagal memuat data grafik')
@@ -44,15 +73,15 @@
     }
   }
 
-  function processChartData(data: any[], days: number) {
+  function processChartData(data: any[], days: number, startDate: Date, endDate: Date) {
     // Initialize date labels
     const labels: string[] = []
     const gensetData: number[] = []
     const tugAssistData: number[] = []
 
-    for (let i = days - 1; i >= 0; i--) {
-      const date = new Date()
-      date.setDate(date.getDate() - i)
+    for (let i = 0; i < days; i++) {
+      const date = new Date(startDate)
+      date.setDate(date.getDate() + i)
       labels.push(date.toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit' }))
     }
 
@@ -96,6 +125,8 @@
     if (chartInstance) {
       chartInstance.destroy()
     }
+
+    if (!canvasElement) return
 
     const ctx = canvasElement.getContext('2d')
     if (!ctx) return
@@ -166,8 +197,35 @@
         <option value="7d">7 Hari Terakhir</option>
         <option value="30d">30 Hari Terakhir</option>
         <option value="90d">90 Hari Terakhir</option>
+        <option value="custom">Custom</option>
       </select>
     </div>
+
+    {#if timeRange === 'custom'}
+      <div class="filter-group">
+        <label for="startDate">Tanggal Mulai</label>
+        <input
+          id="startDate"
+          type="date"
+          class="input"
+          bind:value={customStartDate}
+        />
+      </div>
+
+      <div class="filter-group">
+        <label for="endDate">Tanggal Akhir</label>
+        <input
+          id="endDate"
+          type="date"
+          class="input"
+          bind:value={customEndDate}
+        />
+      </div>
+
+      <div class="filter-group">
+        <button class="btn btn-primary" onclick={refreshChart}>Terapkan</button>
+      </div>
+    {/if}
 
     <div class="filter-group">
       <label for="location">Lokasi</label>
@@ -211,7 +269,8 @@
     color: var(--text-muted, #64748b);
   }
 
-  .filter-group select {
+  .filter-group select,
+  .filter-group input {
     padding: 0.5rem;
     border: 1px solid var(--border, #e2e8f0);
     border-radius: 0.375rem;
@@ -224,5 +283,27 @@
     padding: 1.5rem;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     height: 400px;
+  }
+
+  @media (max-width: 768px) {
+    .filters {
+      gap: 0.5rem;
+    }
+
+    .filter-group {
+      flex: 1 1 100%;
+    }
+
+    .filter-group select,
+    .filter-group input {
+      min-width: 100%;
+      font-size: 0.8125rem;
+      padding: 0.5rem 0.625rem;
+    }
+
+    .chart-container {
+      padding: 1rem;
+      height: 300px;
+    }
   }
 </style>

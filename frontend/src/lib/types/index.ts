@@ -87,3 +87,62 @@ export interface AuthResponse {
 export interface ApiError {
   error: string
 }
+
+export interface Alert {
+  message: string
+  type?: 'warning' | 'danger'
+}
+
+export interface StockAlert {
+  location: string
+  balance: number
+  threshold: number
+  message: string
+  type?: 'warning' | 'danger'
+}
+
+export interface NotificationResponse {
+  hasAlerts: boolean
+  alerts: StockAlert[]
+  threshold: number
+}
+
+export interface SystemLog {
+  id: number
+  userId: number | null
+  action: string
+  entityType: string | null
+  entityId: number | null
+  ipAddress: string | null
+  details: string | null
+  createdAt: string
+  userName: string | null
+  userEmail: string | null
+}
+
+export interface LogsQuery {
+  page?: number
+  limit?: number
+  action?: string
+  entityType?: string
+  userId?: number
+  startDate?: string
+  endDate?: string
+  search?: string
+}
+
+export interface LogsResponse {
+  data: SystemLog[]
+  pagination: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+  }
+}
+
+export interface LogsStats {
+  totalLogs: number
+  actionCounts: { action: string; count: number }[]
+  userActivity: { userId: number; userName: string; count: number }[]
+}

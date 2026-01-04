@@ -8,6 +8,7 @@
   let data = $state<StockHistory[]>([])
   let pagination = $state({ page: 1, limit: 20, total: 0, totalPages: 0 })
   let loading = $state(true)
+  let exporting = $state(false)
 
   // Filters
   let filters = $state({
@@ -61,6 +62,61 @@
   function getTypeBadge(type: string) {
     return type === 'IN' ? 'badge-in' : 'badge-out'
   }
+
+  async function exportToExcel() {
+    try {
+      exporting = true
+      const params: any = {}
+
+      if (filters.type) params.type = filters.type
+      if (filters.location) params.location = filters.location
+      if (filters.startDate) params.startDate = filters.startDate
+      if (filters.endDate) params.endDate = filters.endDate
+
+      // Build query string
+      const queryString = new URLSearchParams(params as any).toString()
+
+      // Get API URL from environment or default
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
+
+      // Fetch the file
+      const response = await fetch(`${apiUrl}/api/stock/export?${queryString}`, {
+        method: 'GET',
+        credentials: 'include',
+      })
+
+      if (!response.ok) {
+        throw new Error('Gagal mengekspor data')
+      }
+
+      // Get filename from headers or use default
+      const contentDisposition = response.headers.get('Content-Disposition')
+      let filename = `riwayat-stok-bbm-${new Date().toISOString().slice(0, 10)}.xlsx`
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename="(.+)"/)
+        if (match && match[1]) {
+          filename = match[1]
+        }
+      }
+
+      // Download the file
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+
+      toast.success('Data berhasil diekspor')
+    } catch (err: any) {
+      toast.error(err.message || 'Gagal mengekspor data')
+    } finally {
+      exporting = false
+    }
+  }
 </script>
 
 <div class="history-page">
@@ -94,6 +150,14 @@
     />
 
     <button class="btn btn-secondary" onclick={resetFilters}>Reset</button>
+
+    <button
+      class="btn btn-primary"
+      onclick={exportToExcel}
+      disabled={exporting}
+    >
+      {exporting ? 'Mengekspor...' : 'Export Excel'}
+    </button>
   </div>
 
   {#if loading}
@@ -227,5 +291,43 @@
   .btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+  }
+
+  @media (max-width: 768px) {
+    .filters {
+      gap: 0.5rem;
+    }
+
+    .filters select,
+    .filters input,
+    .filters button {
+      font-size: 0.8125rem;
+      padding: 0.5rem 0.625rem;
+    }
+
+    .filters input[type="date"] {
+      flex: 1;
+      min-width: 120px;
+    }
+
+    .table th,
+    .table td {
+      padding: 0.5rem 0.625rem;
+      font-size: 0.8125rem;
+    }
+
+    .table th:not(.badge-cell),
+    .table td:not(.badge-cell) {
+      white-space: nowrap;
+    }
+
+    .pagination {
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .pagination span {
+      font-size: 0.875rem;
+    }
   }
 </style>

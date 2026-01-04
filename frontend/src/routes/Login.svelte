@@ -161,4 +161,47 @@
     border-radius: 0.25rem;
     font-family: monospace;
   }
+
+  @media (max-width: 480px) {
+    .login-container {
+      padding: 1rem;
+    }
+
+    .login-card {
+      padding: 1.5rem;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+    }
+
+    .subtitle {
+      font-size: 0.875rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .form-group label {
+      font-size: 0.875rem;
+    }
+
+    .input {
+      padding: 0.625rem;
+      font-size: 0.9375rem;
+    }
+
+    .btn {
+      padding: 0.625rem;
+      font-size: 0.9375rem;
+    }
+
+    .hint {
+      font-size: 0.8125rem;
+      padding: 0.875rem;
+    }
+
+    .hint code {
+      font-size: 0.75rem;
+      padding: 0.0625rem 0.1875rem;
+    }
+  }
 </style>

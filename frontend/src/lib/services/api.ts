@@ -43,7 +43,7 @@ async function refreshAccessToken(): Promise<boolean> {
   return refreshPromise
 }
 
-async function handleResponse(res: Response) {
+async function handleResponse(res: Response): Promise<unknown> {
   if (res.status === 401) {
     // Don't redirect if already on login page
     if (window.location.pathname === '/login') {
@@ -107,6 +107,14 @@ export const api = {
   put: (url: string, data: unknown) =>
     fetch(`${API_URL}${url}`, {
       method: 'PUT',
+      headers: getHeaders(),
+      credentials: 'include',
+      body: JSON.stringify(data),
+    }).then(handleResponse),
+
+  patch: (url: string, data: unknown) =>
+    fetch(`${API_URL}${url}`, {
+      method: 'PATCH',
       headers: getHeaders(),
       credentials: 'include',
       body: JSON.stringify(data),
