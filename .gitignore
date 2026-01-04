@@ -1,4 +1,5 @@
 backend/.env
 backend/nul
 backend/node_modules/
+frontend/.env
 frontend/node_modules/
