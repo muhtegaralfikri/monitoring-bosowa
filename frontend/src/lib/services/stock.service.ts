@@ -31,6 +31,16 @@ export const stockService = {
     return api.get(`/stock/history?${searchParams}`) as Promise<StockHistoryResponse>
   },
 
+  exportHistory(params: {
+    type?: 'IN' | 'OUT'
+    location?: 'GENSET' | 'TUG_ASSIST'
+    startDate?: string
+    endDate?: string
+  }): Promise<Response> {
+    const searchParams = new URLSearchParams(params as Record<string, string>)
+    return api.getFile(`/stock/export?${searchParams}`) as Promise<Response>
+  },
+
   getTrend(params: { days?: number; location?: string }): Promise<StockTrend[]> {
     const searchParams = new URLSearchParams(params as Record<string, string>)
     return api.get(`/stock/trend?${searchParams}`) as Promise<StockTrend[]>

@@ -290,21 +290,7 @@
       if (filters.startDate) params.startDate = filters.startDate
       if (filters.endDate) params.endDate = filters.endDate
 
-      // Build query string
-      const queryString = new URLSearchParams(params as any).toString()
-
-      // Get API URL from environment or default
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000'
-
-      // Fetch the file
-      const response = await fetch(`${apiUrl}/api/stock/export?${queryString}`, {
-        method: 'GET',
-        credentials: 'include',
-      })
-
-      if (!response.ok) {
-        throw new Error('Gagal mengekspor data')
-      }
+      const response = await stockService.exportHistory(params)
 
       // Get filename from headers or use default
       const contentDisposition = response.headers.get('Content-Disposition')
