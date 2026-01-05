@@ -23,7 +23,10 @@ export async function authMiddleware(request: FastifyRequest, reply: FastifyRepl
       return reply.status(401).send({ error: 'User not found' })
     }
 
-    request.jwtUser = payload
+    request.jwtUser = {
+      ...payload,
+      location: user.location,
+    }
   } catch (err) {
     return reply.status(401).send({ error: 'Unauthorized' })
   }

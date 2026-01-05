@@ -27,6 +27,7 @@
     notes: '',
     location: 'GENSET' as 'GENSET' | 'TUG_ASSIST',
   })
+  let lastUpdateAt = $state<string | Date | null>(null)
   let officerFilter = $state('')
 
   // Filters
@@ -50,12 +51,13 @@
   const operatorLabel = $derived.by(() => `Operasional Lapangan ${locationLabel}`)
   const adminName = $derived.by(() => $auth.user?.name || 'Admin')
   const isAdminView = $derived.by(() => $auth.user?.role === 1)
-
-  const lastUpdate = $derived.by(() => {
-    if (!data.length) return null
-    const rawDate = resolveCreatedAt(data[0])
-    return rawDate ? formatTime(rawDate) : null
+  const locationKey = $derived.by(() => {
+    if ($auth.user?.location === 1) return 'GENSET'
+    if ($auth.user?.location === 2) return 'TUG_ASSIST'
+    return ''
   })
+
+  const lastUpdate = $derived.by(() => (lastUpdateAt ? formatTime(lastUpdateAt) : null))
 
   const filteredData = $derived.by(() => {
     const term = filters.search.trim().toLowerCase()
@@ -108,6 +110,7 @@
 
     if ($isOperasional) {
       await loadSummary()
+      await loadLastUpdate()
     }
 
     timeInterval = setInterval(() => {
@@ -137,6 +140,25 @@
       summary = summaries[0] || null
     } catch (err: any) {
       toast.error(err.message || 'Gagal memuat ringkasan stok')
+    }
+  }
+
+  async function loadLastUpdate() {
+    try {
+      if (!locationKey) {
+        lastUpdateAt = null
+        return
+      }
+      const response: StockHistoryResponse = await stockService.getHistory({
+        page: 1,
+        limit: 1,
+        location: locationKey as 'GENSET' | 'TUG_ASSIST',
+      })
+      const newest = response.data[0]
+      lastUpdateAt = newest ? resolveCreatedAt(newest) : null
+    } catch (err: any) {
+      lastUpdateAt = null
+      toast.error(err.message || 'Gagal memuat pembaruan stok')
     }
   }
 
@@ -227,6 +249,7 @@
 
       await loadHistory(1)
       await loadSummary()
+      await loadLastUpdate()
     } catch (err: any) {
       toast.error(err.message || 'Gagal mengirim data pemakaian')
     } finally {

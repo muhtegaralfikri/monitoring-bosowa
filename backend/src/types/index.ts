@@ -4,6 +4,7 @@ export interface JwtPayload {
   userId: number
   email: string
   role: number
+  location?: number | null
 }
 
 export interface AuthResponse {
