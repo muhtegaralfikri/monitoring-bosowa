@@ -4,65 +4,85 @@
   import { toast } from './lib/stores/toast'
   import Login from './routes/Login.svelte'
   import Dashboard from './routes/Dashboard.svelte'
-  import History from './routes/History.svelte'
+  import Input from './routes/Input.svelte'
   import Users from './routes/Users.svelte'
-  import Logs from './routes/Logs.svelte'
   import Navbar from './lib/components/Navbar.svelte'
   import Toast from './lib/components/Toast.svelte'
 
-  let currentPage = $state<'login' | 'dashboard' | 'history' | 'users' | 'logs'>('dashboard')
+  let currentPage = $state<'login' | 'dashboard' | 'input' | 'users'>('dashboard')
   let isLoading = $state(true)
 
   // URL to page mapping
-  const pageRoutes: Record<string, 'login' | 'dashboard' | 'history' | 'users' | 'logs'> = {
+  const pageRoutes: Record<string, 'login' | 'dashboard' | 'input' | 'users'> = {
     '': 'dashboard',
     '/': 'dashboard',
     '/login': 'login',
     '/dashboard': 'dashboard',
-    '/history': 'history',
+    '/input': 'input',
     '/users': 'users',
-    '/logs': 'logs',
   }
 
   // Page to URL mapping
-  const pageUrls: Record<'login' | 'dashboard' | 'history' | 'users' | 'logs', string> = {
+  const pageUrls: Record<'login' | 'dashboard' | 'input' | 'users', string> = {
     login: '/login',
     dashboard: '/',
-    history: '/history',
+    input: '/input',
     users: '/users',
-    logs: '/logs',
   }
 
   onMount(async () => {
-    // Set initial URL to dashboard (clean URL)
-    if (window.location.pathname === '/login') {
-      window.history.replaceState({}, '', '/')
-    }
-
     await auth.init()
     isLoading = false
 
-    // Set initial page based on URL
-    const path = window.location.pathname
-    currentPage = pageRoutes[path] || 'dashboard'
+    applyRoute(window.location.pathname, true)
 
     // Handle browser back/forward
     window.addEventListener('popstate', handlePopState)
   })
 
-  function handlePopState() {
-    const path = window.location.pathname
-    currentPage = pageRoutes[path] || 'dashboard'
+  function resolvePage(path: string) {
+    const target = pageRoutes[path] || 'dashboard'
+    const publicPages: Array<typeof currentPage> = ['dashboard', 'login']
+
+    if (!$auth.isAuthenticated) {
+      return publicPages.includes(target) ? target : 'login'
+    }
+
+    if (target === 'login') {
+      return 'dashboard'
+    }
+
+    if (target === 'users' && $auth.user?.role !== 1) {
+      return 'dashboard'
+    }
+
+    return target
   }
 
-  function navigate(page: typeof currentPage) {
-    currentPage = page
-    const url = pageUrls[page]
+  function applyRoute(path: string, replace = false) {
+    const nextPage = resolvePage(path)
+    currentPage = nextPage
+    const url = pageUrls[nextPage]
+    if (replace) {
+      window.history.replaceState({}, '', url)
+      return
+    }
     window.history.pushState({}, '', url)
   }
 
+  function handlePopState() {
+    applyRoute(window.location.pathname, true)
+  }
+
+  function navigate(page: typeof currentPage) {
+    const path = pageUrls[page]
+    applyRoute(path)
+  }
+
   function handleLogout() {
-    auth.logout()
+    auth.logout().finally(() => {
+      applyRoute('/login', true)
+    })
   }
 
   function handleLogin() {
@@ -91,12 +111,10 @@
       <main class="main">
         {#if currentPage === 'dashboard'}
           <Dashboard />
-        {:else if currentPage === 'history'}
-          <History />
+        {:else if currentPage === 'input'}
+          <Input />
         {:else if currentPage === 'users' && $auth.user?.role === 1}
           <Users />
-        {:else if currentPage === 'logs' && $auth.user?.role === 1}
-          <Logs />
         {/if}
       </main>
     {/if}

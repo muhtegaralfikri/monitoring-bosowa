@@ -1,7 +1,7 @@
 <script lang="ts">
   interface Props {
-    currentPage: 'login' | 'dashboard' | 'history' | 'users' | 'logs'
-    onNavigate: (page: 'dashboard' | 'history' | 'users' | 'logs' | 'login') => void
+    currentPage: 'login' | 'dashboard' | 'input' | 'users'
+    onNavigate: (page: 'dashboard' | 'input' | 'users' | 'login') => void
     onLogout: () => void
     isAdmin?: boolean
     isAuthenticated?: boolean
@@ -11,12 +11,12 @@
 
   const baseNavItems = [
     { id: 'dashboard' as const, label: 'Beranda' },
-    { id: 'history' as const, label: 'Riwayat' },
+    { id: 'input' as const, label: 'Input' },
   ]
 
   const navItems = $derived([
     ...baseNavItems,
-    ...(isAdmin ? [{ id: 'users' as const, label: 'Users' }, { id: 'logs' as const, label: 'Logs' }] : [])
+    ...(isAdmin ? [{ id: 'users' as const, label: 'Users' }] : [])
   ])
 
   let mobileMenuOpen = $state(false)
@@ -25,7 +25,7 @@
     mobileMenuOpen = false
   }
 
-  function handleNavigate(page: 'dashboard' | 'history' | 'users' | 'logs' | 'login') {
+  function handleNavigate(page: 'dashboard' | 'input' | 'users' | 'login') {
     onNavigate(page)
     closeMobileMenu()
   }

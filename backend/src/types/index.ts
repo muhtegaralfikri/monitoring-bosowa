@@ -57,13 +57,3 @@ export const UserLocation = {
   TUG_ASSIST: 2,
 } as const
 
-export interface LogsQuery {
-  page?: number
-  limit?: number
-  action?: string
-  entityType?: string
-  userId?: number
-  startDate?: string
-  endDate?: string
-  search?: string
-}

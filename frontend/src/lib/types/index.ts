@@ -128,29 +128,3 @@ export interface SystemLog {
   userEmail: string | null
 }
 
-export interface LogsQuery {
-  page?: number
-  limit?: number
-  action?: string
-  entityType?: string
-  userId?: number
-  startDate?: string
-  endDate?: string
-  search?: string
-}
-
-export interface LogsResponse {
-  data: SystemLog[]
-  pagination: {
-    page: number
-    limit: number
-    total: number
-    totalPages: number
-  }
-}
-
-export interface LogsStats {
-  totalLogs: number
-  actionCounts: { action: string; count: number }[]
-  userActivity: { userId: number; userName: string; count: number }[]
-}

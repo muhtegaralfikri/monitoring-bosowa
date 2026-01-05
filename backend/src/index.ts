@@ -8,7 +8,6 @@ import { authRoutes } from './routes/auth.routes'
 import { stockRoutes } from './routes/stock.routes'
 import { userRoutes } from './routes/user.routes'
 import { notificationRoutes } from './routes/notification.routes'
-import { logsRoutes } from './routes/logs.routes'
 
 const fastify = Fastify({
   logger: true,
@@ -49,7 +48,6 @@ await fastify.register(authRoutes, { prefix: '/auth' })
 await fastify.register(stockRoutes, { prefix: '/stock' })
 await fastify.register(userRoutes, { prefix: '/users' })
 await fastify.register(notificationRoutes, { prefix: '/notifications' })
-await fastify.register(logsRoutes, { prefix: '/logs' })
 
 // Start server
 const start = async () => {

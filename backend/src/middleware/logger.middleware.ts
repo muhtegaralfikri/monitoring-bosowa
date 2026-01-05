@@ -54,6 +54,4 @@ export const LOG_ACTIONS = {
   // Settings actions
   SETTINGS_UPDATED: 'SETTINGS_UPDATED',
 
-  // Log actions
-  LOGS_VIEWED: 'LOGS_VIEWED',
 } as const
