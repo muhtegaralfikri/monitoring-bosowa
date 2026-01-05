@@ -11,7 +11,7 @@ import {
 import { authMiddleware, requireAdmin } from '../middleware/auth.middleware'
 
 export async function stockRoutes(fastify: FastifyInstance) {
-  // Public routes for charts (no authentication required)
+  // Public routes for dashboard and charts (no authentication required)
   fastify.register(async function (fastify) {
     // Public rate limit (more lenient)
     fastify.addHook('preHandler', async (request, reply) => {
@@ -26,6 +26,9 @@ export async function stockRoutes(fastify: FastifyInstance) {
 
     // Get stock trend (public - for charts)
     fastify.get('/trend', getStockTrendHandler)
+
+    // Get today's statistics (public - for dashboard cards)
+    fastify.get('/today', getTodayStatsHandler)
   })
 
   // All other routes require authentication
@@ -42,9 +45,6 @@ export async function stockRoutes(fastify: FastifyInstance) {
 
     // Get stock summary
     fastify.get('/summary', getStockSummaryHandler)
-
-    // Get today's statistics
-    fastify.get('/today', getTodayStatsHandler)
 
     // Stock IN (admin only)
     fastify.register(async function (fastify) {

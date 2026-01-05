@@ -254,7 +254,10 @@ export async function getTodayStatsHandler(request: FastifyRequest, reply: Fasti
     const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999)
 
     // Build location filter
-    const locationFilter = query.location || (jwtUser.role === 2 ? (jwtUser.location === 1 ? 'GENSET' : 'TUG_ASSIST') : undefined)
+    // If query.location is provided, use it
+    // Otherwise, if user is operasional (role 2), filter by their location
+    // For public access (no user) or admin, show all locations
+    const locationFilter = query.location || (jwtUser?.role === 2 ? (jwtUser.location === 1 ? 'GENSET' : 'TUG_ASSIST') : undefined)
 
     // Get initial stock (last balance before today)
     const initialStocks = await db
