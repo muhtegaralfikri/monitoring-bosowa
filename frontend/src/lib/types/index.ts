@@ -13,7 +13,7 @@ export interface CreateUserInput {
   password: string
   name: string
   role: number
-  location: number
+  location?: number | null
 }
 
 export interface UpdateUserInput {
@@ -21,7 +21,7 @@ export interface UpdateUserInput {
   password?: string
   name?: string
   role?: number
-  location?: number
+  location?: number | null
   isActive?: boolean
 }
 

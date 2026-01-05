@@ -2,23 +2,22 @@
   import { onMount } from 'svelte'
   import { userService } from '../lib/services/user.service'
   import { toast } from '../lib/stores/toast'
-  import { isAdmin } from '../lib/stores/auth'
   import { formatDateTime } from '../lib/utils/format'
   import type { User } from '../lib/types'
 
   let users = $state<User[]>([])
   let loading = $state(true)
-  let showModal = $state(false)
   let editingUser = $state<User | null>(null)
   let isSubmitting = $state(false)
+  let showPassword = $state(false)
+  let locationChoice = $state<'all' | '1' | '2'>('all')
 
   // Form state
   let formData = $state({
     email: '',
     name: '',
     password: '',
-    role: 2, // 1 = admin, 2 = operasional
-    location: 1, // 1 = GENSET, 2 = TUG_ASSIST
+    role: 1, // 1 = admin, 2 = operasional
     isActive: true,
   })
 
@@ -38,39 +37,46 @@
     }
   }
 
-  function openAddModal() {
+  function resetForm() {
     editingUser = null
     formData = {
       email: '',
       name: '',
       password: '',
-      role: 2,
-      location: 1,
+      role: 1,
       isActive: true,
     }
-    showModal = true
+    locationChoice = 'all'
+    showPassword = false
   }
 
-  function openEditModal(user: User) {
+  function openEditForm(user: User) {
     editingUser = user
     formData = {
       email: user.email,
       name: user.name,
       password: '',
       role: user.role,
-      location: user.location || 1,
       isActive: user.isActive,
     }
-    showModal = true
+    locationChoice = user.location === 1 ? '1' : user.location === 2 ? '2' : 'all'
+    showPassword = false
   }
 
-  function closeModal() {
-    showModal = false
-    editingUser = null
+  function cancelEdit() {
+    resetForm()
   }
 
-  function handleModalClick(event: MouseEvent) {
-    event.stopPropagation()
+  function resolveLocationValue() {
+    return locationChoice === 'all' ? null : Number(locationChoice)
+  }
+
+  function formatDateTimeLines(value: string) {
+    const [datePart, timePart] = formatDateTime(value).split(', ')
+    return {
+      date: datePart || formatDateTime(value),
+      time: timePart || '',
+    }
   }
 
   async function handleSubmit() {
@@ -81,6 +87,7 @@
 
     try {
       isSubmitting = true
+      const locationValue = resolveLocationValue()
 
       if (editingUser) {
         // Update existing user
@@ -88,7 +95,7 @@
           email: formData.email,
           name: formData.name,
           role: formData.role,
-          location: formData.location,
+          location: locationValue,
           isActive: formData.isActive,
           ...(formData.password ? { password: formData.password } : {}),
         })
@@ -100,12 +107,12 @@
           name: formData.name,
           password: formData.password,
           role: formData.role,
-          location: formData.location,
+          location: locationValue,
         })
         toast.success('User berhasil ditambahkan')
       }
 
-      closeModal()
+      resetForm()
       await loadUsers()
     } catch (err: any) {
       toast.error(err.message || 'Gagal menyimpan user')
@@ -137,411 +144,559 @@
   }
 
   function getLocationName(location: number | null) {
-    if (!location) return '-'
-    return location === 1 ? 'GENSET' : 'TUG ASSIST'
+    if (!location) return 'ALL'
+    return location === 1 ? 'Genset' : 'Tug Assist'
   }
 </script>
 
 <div class="users-page">
-  <div class="page-header">
-    <h1>Manajemen User</h1>
-    <button class="btn btn-primary" onclick={openAddModal}>+ Tambah User</button>
-  </div>
-
-  {#if loading}
-    <div class="loading">
-      <div class="spinner"></div>
-      <p>Loading...</p>
+  <section class="users-card">
+    <div class="card-heading">
+      <p class="card-kicker">Kelola Pengguna</p>
+      <h2 class="card-title">{editingUser ? 'Edit Pengguna' : 'Tambah Pengguna Baru'}</h2>
     </div>
-  {:else}
-    <div class="table-container">
-      <table class="table">
-        <thead>
-          <tr>
-            <th>Nama</th>
-            <th>Email</th>
-            <th>Role</th>
-            <th>Lokasi</th>
-            <th>Status</th>
-            <th>Dibuat</th>
-            <th>Aksi</th>
-          </tr>
-        </thead>
-        <tbody>
-          {#each users as user}
-            <tr>
-              <td>{user.name}</td>
-              <td>{user.email}</td>
-              <td>
-                <span class="badge {getRoleBadge(user.role)}">
-                  {getRoleName(user.role)}
-                </span>
-              </td>
-              <td>{getLocationName(user.location)}</td>
-              <td>
-                <span class="status-badge {user.isActive ? 'active' : 'inactive'}">
-                  {user.isActive ? 'Aktif' : 'Nonaktif'}
-                </span>
-              </td>
-              <td>{formatDateTime(user.createdAt)}</td>
-              <td>
-                <div class="actions">
-                  <button class="btn-icon" onclick={() => openEditModal(user)} title="Edit">
-                    ✏️
-                  </button>
-                  <button class="btn-icon btn-danger" onclick={() => handleDelete(user)} title="Hapus">
-                    🗑️
-                  </button>
-                </div>
-              </td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
-    </div>
-  {/if}
 
-  {#if showModal}
-    <div
-      class="modal-overlay"
-      role="presentation"
-      onclick={closeModal}
-      onkeydown={(e) => e.key === 'Escape' && closeModal()}
-    >
-      <div
-        class="modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="modal-title"
-        tabindex="-1"
-        onclick={handleModalClick}
-        onkeydown={(e) => e.key === 'Escape' && closeModal()}
-      >
-        <div class="modal-header">
-          <h2 id="modal-title">{editingUser ? 'Edit User' : 'Tambah User Baru'}</h2>
-          <button class="btn-close" onclick={closeModal} aria-label="Tutup modal">✕</button>
+    <form class="user-form" onsubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="name">Nama Lengkap</label>
+          <input
+            id="name"
+            type="text"
+            class="form-input"
+            bind:value={formData.name}
+            placeholder="Mis. Admin Bosowa"
+            required
+          />
         </div>
 
-        <form onsubmit={(e) => { e.preventDefault(); handleSubmit(); }}>
-          <div class="modal-body">
-            <div class="form-group">
-              <label for="name">Nama</label>
-              <input
-                id="name"
-                type="text"
-                class="input"
-                bind:value={formData.name}
-                placeholder="Nama lengkap"
-                required
-              />
-            </div>
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input
+            id="email"
+            type="email"
+            class="form-input"
+            bind:value={formData.email}
+            placeholder="admin@example.com"
+            required
+          />
+        </div>
 
-            <div class="form-group">
-              <label for="email">Email</label>
-              <input
-                id="email"
-                type="email"
-                class="input"
-                bind:value={formData.email}
-                placeholder="email@example.com"
-                required
-              />
-            </div>
-
-            <div class="form-group">
-              <label for="password">Password</label>
-              <input
-                id="password"
-                type="password"
-                class="input"
-                bind:value={formData.password}
-                placeholder={editingUser ? 'Kosongkan jika tidak diubah' : 'Password minimal 6 karakter'}
-                minlength={editingUser ? undefined : 6}
-                required={!editingUser}
-              />
-            </div>
-
-            <div class="form-row">
-              <div class="form-group">
-                <label for="role">Role</label>
-                <select id="role" class="input" bind:value={formData.role}>
-                  <option value={1}>Admin</option>
-                  <option value={2}>Operasional</option>
-                </select>
-              </div>
-
-              <div class="form-group">
-                <label for="location">Lokasi</label>
-                <select id="location" class="input" bind:value={formData.location}>
-                  <option value={1}>GENSET</option>
-                  <option value={2}>TUG ASSIST</option>
-                </select>
-              </div>
-            </div>
-
-            {#if editingUser}
-              <div class="form-group">
-                <label>
-                  <input type="checkbox" bind:checked={formData.isActive} />
-                  Aktif
-                </label>
-              </div>
-            {/if}
-          </div>
-
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" onclick={closeModal}>Batal</button>
-            <button type="submit" class="btn btn-primary" disabled={isSubmitting}>
-              {#if isSubmitting}
-                <span class="spinner-small"></span>
-                Menyimpan...
+        <div class="form-group">
+          <label for="password">Password Awal</label>
+          <div class="input-with-action">
+            <input
+              id="password"
+              type={showPassword ? 'text' : 'password'}
+              class="form-input"
+              bind:value={formData.password}
+              placeholder={editingUser ? 'Kosongkan jika tidak diubah' : 'Minimal 8 karakter'}
+              minlength={editingUser ? undefined : 8}
+              required={!editingUser}
+            />
+            <button
+              type="button"
+              class="toggle-visibility"
+              aria-label={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
+              onclick={() => showPassword = !showPassword}
+            >
+              {#if showPassword}
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    d="M3 12s3.6-6 9-6 9 6 9 6-3.6 6-9 6-9-6-9-6Z"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                  <circle cx="12" cy="12" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8" />
+                </svg>
               {:else}
-                {editingUser ? 'Simpan Perubahan' : 'Tambah User'}
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    d="M3 12s3.6-6 9-6 9 6 9 6-3.6 6-9 6-9-6-9-6Z"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                  <path
+                    d="M5 5l14 14"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                    stroke-linecap="round"
+                  />
+                </svg>
               {/if}
             </button>
           </div>
-        </form>
+        </div>
+
+        <div class="form-group">
+          <label for="role">Peran</label>
+          <div class="select-wrapper">
+            <select id="role" class="form-input" bind:value={formData.role}>
+              <option value={1}>Admin</option>
+              <option value={2}>Operasional</option>
+            </select>
+          </div>
+        </div>
       </div>
+
+      <div class="form-footer">
+        <div class="form-group monitoring">
+          <label for="location">Monitoring</label>
+          <div class="select-wrapper">
+            <select id="location" class="form-input" bind:value={locationChoice}>
+              <option value="all">Semua (ALL)</option>
+              <option value="1">Genset</option>
+              <option value="2">Tug Assist</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          {#if editingUser}
+            <button type="button" class="btn btn-outline" onclick={cancelEdit}>Batal</button>
+          {/if}
+          <button type="submit" class="btn btn-save" disabled={isSubmitting}>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M16 19a4 4 0 0 0-8 0"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+              />
+              <circle cx="12" cy="8" r="4" fill="none" stroke="currentColor" stroke-width="1.8" />
+              <path
+                d="M19 8v6M16 11h6"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+              />
+            </svg>
+            {#if isSubmitting}
+              Menyimpan...
+            {:else}
+              {editingUser ? 'Simpan Perubahan' : 'Simpan Pengguna'}
+            {/if}
+          </button>
+        </div>
+      </div>
+    </form>
+  </section>
+
+  <section class="users-card">
+    <div class="card-heading">
+      <p class="card-kicker">Daftar Pengguna</p>
+      <h2 class="card-title">Pengguna Aktif</h2>
     </div>
-  {/if}
+
+    {#if loading}
+      <div class="table-loading">
+        <div class="spinner"></div>
+        <span>Memuat data pengguna...</span>
+      </div>
+    {:else if users.length === 0}
+      <p class="empty-state">Belum ada pengguna terdaftar.</p>
+    {:else}
+      <div class="table-wrapper">
+        <table class="user-table">
+          <thead>
+            <tr>
+              <th>Nama</th>
+              <th>Email</th>
+              <th>Peran</th>
+              <th>Monitoring</th>
+              <th>Dibuat</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each users as user}
+              {@const created = formatDateTimeLines(user.createdAt)}
+              <tr>
+                <td class="name-cell">{user.name}</td>
+                <td class="muted">{user.email}</td>
+                <td>
+                  <span class="role-badge {getRoleBadge(user.role)}">
+                    {getRoleName(user.role)}
+                  </span>
+                </td>
+                <td>{getLocationName(user.location)}</td>
+                <td class="date-cell">
+                  <span>{created.date}</span>
+                  <span>{created.time}</span>
+                </td>
+                <td>
+                  <div class="actions">
+                    <button class="action-link edit" onclick={() => openEditForm(user)}>
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path
+                          d="M4 20h4l11-11a2.8 2.8 0 0 0-4-4L4 16v4Z"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="1.8"
+                          stroke-linejoin="round"
+                        />
+                      </svg>
+                      Edit
+                    </button>
+                    <button class="action-link delete" onclick={() => handleDelete(user)}>
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path
+                          d="M4 7h16M9 7V5h6v2M8 7l1 12h6l1-12"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="1.8"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                        />
+                      </svg>
+                      Hapus
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+    {/if}
+  </section>
 </div>
 
 <style>
-  .page-header {
+  .users-page {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    flex-direction: column;
+    gap: 1.75rem;
+  }
+
+  .users-card {
+    background: #ffffff;
+    border-radius: 0.75rem;
+    padding: 1.75rem 2rem;
+    border: 1px solid #edf2f7;
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
+  }
+
+  .card-heading {
     margin-bottom: 1.5rem;
   }
 
-  .table-container {
-    background: var(--surface, #ffffff);
+  .card-kicker {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #64748b;
+    margin-bottom: 0.35rem;
+  }
+
+  .card-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1f2937;
+  }
+
+  .user-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1.25rem;
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .form-group label {
+    font-weight: 600;
+    color: #334155;
+    font-size: 0.95rem;
+  }
+
+  .form-input {
+    width: 100%;
+    padding: 0.65rem 0.85rem;
     border-radius: 0.5rem;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    border: 1px solid #d7dee8;
+    background: #ffffff;
+    font-size: 0.9rem;
+    color: #0f172a;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .form-input:focus {
+    outline: none;
+    border-color: #93c5fd;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  }
+
+  .input-with-action {
+    display: flex;
+    align-items: center;
+    position: relative;
+  }
+
+  .input-with-action .form-input {
+    padding-right: 2.5rem;
+  }
+
+  .toggle-visibility {
+    position: absolute;
+    right: 0.7rem;
+    background: none;
+    border: none;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #64748b;
+    cursor: pointer;
+  }
+
+  .toggle-visibility svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .select-wrapper {
+    position: relative;
+  }
+
+  .select-wrapper::after {
+    content: '';
+    position: absolute;
+    right: 0.85rem;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 6px solid #94a3b8;
+    pointer-events: none;
+  }
+
+  .select-wrapper .form-input {
+    appearance: none;
+    padding-right: 2rem;
+  }
+
+  .form-footer {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  .monitoring {
+    min-width: 220px;
+  }
+
+  .form-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .btn-save {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: #16a34a;
+    color: #ffffff;
+    padding: 0.65rem 1.25rem;
+    border-radius: 0.5rem;
+    border: none;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(22, 163, 74, 0.25);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .btn-save svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .btn-save:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 14px rgba(22, 163, 74, 0.3);
+  }
+
+  .btn-save:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .btn-outline {
+    padding: 0.6rem 1.1rem;
+    border-radius: 0.5rem;
+    border: 1px solid #d1d5db;
+    background: #ffffff;
+    color: #475569;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .table-loading {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: #475569;
+    font-weight: 600;
+  }
+
+  .empty-state {
+    color: #64748b;
+    font-weight: 500;
+  }
+
+  .table-wrapper {
     overflow-x: auto;
   }
 
-  .table {
+  .user-table {
     width: 100%;
     border-collapse: collapse;
   }
 
-  .table th,
-  .table td {
-    padding: 0.75rem 1rem;
+  .user-table th,
+  .user-table td {
+    padding: 0.9rem 0.75rem;
     text-align: left;
-    border-bottom: 1px solid var(--border, #e2e8f0);
+    border-bottom: 1px solid #eef2f7;
+    font-size: 0.92rem;
   }
 
-  .table th {
-    font-weight: 600;
-    color: var(--text-muted, #64748b);
-    background: var(--bg, #f8fafc);
+  .user-table th {
+    color: #475569;
+    font-weight: 700;
   }
 
-  .badge {
-    padding: 0.25rem 0.5rem;
-    border-radius: 0.25rem;
+  .name-cell {
+    font-weight: 700;
+    color: #1f2937;
+  }
+
+  .muted {
+    color: #64748b;
+  }
+
+  .date-cell {
+    display: flex;
+    flex-direction: column;
+    color: #475569;
+    line-height: 1.3;
+    font-size: 0.85rem;
+  }
+
+  .role-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.65rem;
+    border-radius: 999px;
     font-size: 0.75rem;
     font-weight: 600;
   }
 
   .badge-admin {
-    background: #dbeafe;
-    color: #1e40af;
+    background: #ede9fe;
+    color: #6d28d9;
   }
 
   .badge-op {
-    background: #e2e8f0;
-    color: #475569;
-  }
-
-  .status-badge {
-    padding: 0.25rem 0.5rem;
-    border-radius: 0.25rem;
-    font-size: 0.75rem;
-    font-weight: 500;
-  }
-
-  .status-badge.active {
     background: #dcfce7;
-    color: #166534;
-  }
-
-  .status-badge.inactive {
-    background: #fee2e2;
-    color: #991b1b;
+    color: #15803d;
   }
 
   .actions {
-    display: flex;
-    gap: 0.5rem;
-  }
-
-  .btn-icon {
-    padding: 0.25rem 0.5rem;
-    border: 1px solid var(--border, #e2e8f0);
-    border-radius: 0.25rem;
-    background: white;
-    cursor: pointer;
-    font-size: 1rem;
-  }
-
-  .btn-icon:hover {
-    background: var(--bg, #f8fafc);
-  }
-
-  .btn-danger:hover {
-    background: #fee2e2;
-    border-color: #ef4444;
-  }
-
-  /* Modal */
-  .modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-  }
-
-  .modal {
-    background: var(--surface, #ffffff);
-    border-radius: 0.5rem;
-    width: 100%;
-    max-width: 500px;
-    max-height: 90vh;
-    overflow-y: auto;
-  }
-
-  .modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1rem 1.5rem;
-    border-bottom: 1px solid var(--border, #e2e8f0);
-  }
-
-  .modal-header h2 {
-    margin: 0;
-    font-size: 1.25rem;
-  }
-
-  .btn-close {
-    background: none;
-    border: none;
-    font-size: 1.5rem;
-    cursor: pointer;
-    color: var(--text-muted, #64748b);
-  }
-
-  .modal-body {
-    padding: 1.5rem;
-  }
-
-  .form-group {
-    margin-bottom: 1rem;
-  }
-
-  .form-group label {
-    display: block;
-    margin-bottom: 0.5rem;
-    font-weight: 500;
-  }
-
-  .form-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
+    display: inline-flex;
     gap: 1rem;
+    align-items: center;
   }
 
-  .modal-footer {
-    display: flex;
-    justify-content: flex-end;
-    gap: 0.5rem;
-    padding: 1rem 1.5rem;
-    border-top: 1px solid var(--border, #e2e8f0);
+  .action-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    border: none;
+    background: none;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0;
   }
 
-  .spinner-small {
-    display: inline-block;
+  .action-link svg {
     width: 16px;
     height: 16px;
-    border: 2px solid white;
-    border-top-color: transparent;
-    border-radius: 50%;
-    animation: spin 0.6s linear infinite;
   }
 
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
+  .action-link.edit {
+    color: #16a34a;
+  }
+
+  .action-link.delete {
+    color: #ef4444;
+  }
+
+  @media (max-width: 1024px) {
+    .form-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .users-card {
+      padding: 1.5rem;
     }
   }
 
   @media (max-width: 768px) {
-    .page-header {
+    .form-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .form-footer {
       flex-direction: column;
       align-items: stretch;
-      gap: 1rem;
     }
 
-    .page-header .btn {
+    .form-actions {
       width: 100%;
+      justify-content: flex-start;
+      flex-wrap: wrap;
     }
 
-    .table th,
-    .table td {
-      padding: 0.5rem 0.625rem;
-      font-size: 0.8125rem;
-    }
-
-    .table th:not(:first-child):not(:last-child),
-    .table td:not(:first-child):not(:last-child) {
-      white-space: nowrap;
-    }
-
-    .modal {
-      max-width: 100%;
-      height: 100%;
-      max-height: 100vh;
-      border-radius: 0;
-    }
-
-    .modal-header {
-      padding: 0.875rem 1rem;
-    }
-
-    .modal-header h2 {
-      font-size: 1.125rem;
-    }
-
-    .modal-body {
-      padding: 1rem;
-    }
-
-    .form-row {
-      grid-template-columns: 1fr;
-      gap: 0.75rem;
-    }
-
-    .modal-footer {
-      padding: 0.875rem 1rem;
-      flex-direction: column-reverse;
-    }
-
-    .modal-footer .btn {
+    .btn-save,
+    .btn-outline {
       width: 100%;
+      justify-content: center;
+    }
+
+    .user-table th,
+    .user-table td {
+      padding: 0.75rem 0.5rem;
+      font-size: 0.85rem;
     }
 
     .actions {
       flex-direction: column;
-      gap: 0.25rem;
+      align-items: flex-start;
+      gap: 0.5rem;
     }
   }
 </style>

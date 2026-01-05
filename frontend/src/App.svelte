@@ -75,8 +75,6 @@
     <div class="spinner"></div>
     <p>Loading...</p>
   </div>
-{:else if currentPage === 'login'}
-  <Login onLogin={handleLogin} />
 {:else}
   <div class="app">
     <Navbar
@@ -87,17 +85,21 @@
       isAuthenticated={$auth.isAuthenticated}
     />
 
-    <main class="main">
-      {#if currentPage === 'dashboard'}
-        <Dashboard />
-      {:else if currentPage === 'history'}
-        <History />
-      {:else if currentPage === 'users' && $auth.user?.role === 1}
-        <Users />
-      {:else if currentPage === 'logs' && $auth.user?.role === 1}
-        <Logs />
-      {/if}
-    </main>
+    {#if currentPage === 'login'}
+      <Login onLogin={handleLogin} />
+    {:else}
+      <main class="main">
+        {#if currentPage === 'dashboard'}
+          <Dashboard />
+        {:else if currentPage === 'history'}
+          <History />
+        {:else if currentPage === 'users' && $auth.user?.role === 1}
+          <Users />
+        {:else if currentPage === 'logs' && $auth.user?.role === 1}
+          <Logs />
+        {/if}
+      </main>
+    {/if}
 
     <Toast />
   </div>
