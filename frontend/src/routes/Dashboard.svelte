@@ -99,7 +99,9 @@
     const outTotals: Record<string, number> = {}
 
     history.forEach((item) => {
-      const key = toDateKey(new Date(item.created_at))
+      const rawDate = resolveCreatedAt(item)
+      if (!rawDate) return
+      const key = toDateKey(new Date(rawDate))
       const amount = Number(item.amount)
       if (item.type === 'IN') {
         inTotals[key] = (inTotals[key] || 0) + amount
@@ -112,6 +114,10 @@
       inData: keys.map((key) => inTotals[key] || 0),
       outData: keys.map((key) => outTotals[key] || 0),
     }
+  }
+
+  function resolveCreatedAt(row: StockHistory) {
+    return (row as any).created_at || (row as any).createdAt
   }
 
   function resolveFillColor(color: string) {

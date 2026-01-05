@@ -10,7 +10,37 @@ import { userRoutes } from './routes/user.routes'
 import { notificationRoutes } from './routes/notification.routes'
 
 const fastify = Fastify({
-  logger: true,
+  logger: {
+    level: process.env.LOG_LEVEL || 'info',
+    base: null,
+  },
+  disableRequestLogging: true,
+})
+
+fastify.addHook('onRequest', (request, reply, done) => {
+  ;(request as any).startTime = process.hrtime.bigint()
+  done()
+})
+
+fastify.addHook('onResponse', (request, reply, done) => {
+  if (request.method === 'OPTIONS') {
+    done()
+    return
+  }
+
+  const startTime = (request as any).startTime as bigint | undefined
+  const responseTime = startTime ? Number(process.hrtime.bigint() - startTime) / 1e6 : undefined
+
+  request.log.info(
+    {
+      method: request.method,
+      url: request.url,
+      statusCode: reply.statusCode,
+      responseTime: responseTime ? Number(responseTime.toFixed(2)) : undefined,
+    },
+    'request'
+  )
+  done()
 })
 
 // Register plugins

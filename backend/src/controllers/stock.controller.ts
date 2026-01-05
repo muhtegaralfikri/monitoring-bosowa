@@ -186,7 +186,7 @@ export async function getStockHistoryHandler(request: FastifyRequest, reply: Fas
 
     if (query.location) {
       conditions.push(eq(stocks.location, query.location))
-    } else if (jwtUser.role === 2) {
+    } else if (jwtUser?.role === 2) {
       // Operasional user can only see their location
       conditions.push(eq(stocks.location, jwtUser.location === 1 ? 'GENSET' : 'TUG_ASSIST'))
     }
@@ -196,7 +196,9 @@ export async function getStockHistoryHandler(request: FastifyRequest, reply: Fas
     }
 
     if (query.endDate) {
-      conditions.push(lte(stocks.createdAt, new Date(query.endDate)))
+      const endDate = new Date(query.endDate)
+      endDate.setHours(23, 59, 59, 999)
+      conditions.push(lte(stocks.createdAt, endDate))
     }
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined
