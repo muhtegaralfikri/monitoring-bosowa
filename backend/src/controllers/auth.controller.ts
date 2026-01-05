@@ -85,7 +85,7 @@ export async function refreshHandler(request: FastifyRequest, reply: FastifyRepl
 
     // Get user
     const user = await authService.getUserById(result.userId)
-    if (!user) {
+    if (!user || !user.isActive) {
       return reply.status(401).send({ error: 'User not found' })
     }
 

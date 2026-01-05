@@ -17,6 +17,7 @@ export interface UserData {
   name: string
   role: number
   location: number | null
+  isActive: boolean
 }
 
 export interface LoginInput {

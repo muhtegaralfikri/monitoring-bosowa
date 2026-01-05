@@ -25,11 +25,15 @@ export async function getUsersHandler(request: FastifyRequest, reply: FastifyRep
         createdAt: users.createdAt,
       })
       .from(users)
+      .where(eq(users.isActive, true))
       .limit(limit)
       .offset(offset)
 
     // Get total count
-    const [countResult] = await db.select({ count: sql`count(*)` }).from(users)
+    const [countResult] = await db
+      .select({ count: sql`count(*)` })
+      .from(users)
+      .where(eq(users.isActive, true))
 
     return {
       data: userList,
@@ -175,10 +179,10 @@ export async function deleteUserHandler(request: FastifyRequest, reply: FastifyR
       return reply.status(404).send({ error: 'User not found' })
     }
 
-    // Delete user (cascade will delete refresh tokens)
-    await db.delete(users).where(eq(users.id, Number(id)))
+    // Soft delete user to keep audit history
+    await db.update(users).set({ isActive: false }).where(eq(users.id, Number(id)))
 
-    return { message: 'User deleted successfully' }
+    return { message: 'User deactivated successfully' }
   } catch (err: any) {
     return reply.status(500).send({ error: 'Failed to delete user' })
   }

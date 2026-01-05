@@ -39,6 +39,7 @@ export class AuthService {
       name: user.name,
       role: user.role,
       location: user.location,
+      isActive: user.isActive,
     }
   }
 
@@ -65,6 +66,7 @@ export class AuthService {
       name: user.name,
       role: user.role,
       location: user.location,
+      isActive: user.isActive,
     }
   }
 
@@ -82,6 +84,7 @@ export class AuthService {
       name: user.name,
       role: user.role,
       location: user.location,
+      isActive: user.isActive,
     }
   }
 

@@ -19,7 +19,7 @@ export async function authMiddleware(request: FastifyRequest, reply: FastifyRepl
 
     // Verify user still exists and is active
     const user = await authService.getUserById(payload.userId)
-    if (!user) {
+    if (!user || !user.isActive) {
       return reply.status(401).send({ error: 'User not found' })
     }
 
